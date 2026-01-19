@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="FreedomVPN.Uwp.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FreedomVPN.Uwp"
+    xmlns:viewmodels="using:FreedomVPN.Uwp.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.UI.Controls">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title Bar -->
+        <Grid Grid.Row="0" Padding="16" Background="{StaticResource PrimaryBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <TextBlock 
+                Text="FreedomVPN" 
+                FontSize="24" 
+                FontWeight="Bold"
+                Foreground="White"
+                VerticalAlignment="Center"/>
+            
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button 
+                    Content="&#xE72C;" 
+                    FontFamily="Segoe MDL2 Assets"
+                    Command="{x:Bind ViewModel.RefreshServersCommand}"
+                    Background="Transparent"
+                    Foreground="White"/>
+                <Button 
+                    Content="&#xE713;" 
+                    FontFamily="Segoe MDL2 Assets"
+                    Command="{x:Bind ViewModel.OpenSettingsCommand}"
+                    Background="Transparent"
+                    Foreground="White"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Main Content -->
+        <ScrollViewer Grid.Row="1" Padding="16">
+            <StackPanel Spacing="16">
+                
+                <!-- Connection Status Card -->
+                <Border 
+                    CornerRadius="16"
+                    Padding="32"
+                    Background="{x:Bind ViewModel.ConnectionStatusBrush, Mode=OneWay}">
+                    <StackPanel HorizontalAlignment="Center" Spacing="16">
+                        
+                        <!-- Status Icon -->
+                        <Border 
+                            Width="120" 
+                            Height="120" 
+                            CornerRadius="60"
+                            Background="#33FFFFFF"
+                            HorizontalAlignment="Center">
+                            <FontIcon 
+                                Glyph="{x:Bind ViewModel.ConnectionIcon, Mode=OneWay}"
+                                FontSize="48"
+                                Foreground="White"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"/>
+                        </Border>
+                        
+                        <!-- Status Text -->
+                        <TextBlock 
+                            Text="{x:Bind ViewModel.ConnectionStatusText, Mode=OneWay}"
+                            FontSize="24"
+                            FontWeight="Bold"
+                            Foreground="White"
+                            HorizontalAlignment="Center"/>
+                        
+                        <TextBlock 
+                            Text="{x:Bind ViewModel.ConnectedServerInfo, Mode=OneWay}"
+                            FontSize="14"
+                            Foreground="#CCFFFFFF"
+                            HorizontalAlignment="Center"
+                            Visibility="{x:Bind ViewModel.IsConnected, Mode=OneWay}"/>
+                        
+                        <!-- Connect/Disconnect Button -->
+                        <Button 
+                            Content="{x:Bind ViewModel.ConnectButtonText, Mode=OneWay}"
+                            Command="{x:Bind ViewModel.ToggleConnectionCommand}"
+                            HorizontalAlignment="Center"
+                            Width="200"
+                            Background="White"
+                            Foreground="{StaticResource PrimaryBrush}"
+                            FontWeight="Bold"
+                            Padding="16,12"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Selected Server Card -->
+                <Border 
+                    CornerRadius="16"
+                    Padding="16"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1">
+                    <StackPanel Spacing="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock 
+                                Text="Selected Server" 
+                                FontWeight="SemiBold"
+                                FontSize="16"/>
+                            
+                            <Button 
+                                Grid.Column="1"
+                                Content="Auto Select"
+                                Command="{x:Bind ViewModel.AutoSelectServerCommand}"
+                                FontSize="12"/>
+                        </Grid>
+                        
+                        <!-- Server Info or Select Button -->
+                        <Button 
+                            Command="{x:Bind ViewModel.ShowServerListCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Padding="12"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock 
+                                    Text="{x:Bind ViewModel.SelectedServerFlag, Mode=OneWay}"
+                                    FontSize="32"
+                                    VerticalAlignment="Center"/>
+                                
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock 
+                                        Text="{x:Bind ViewModel.SelectedServerName, Mode=OneWay}"
+                                        FontWeight="Medium"/>
+                                    <TextBlock 
+                                        Text="{x:Bind ViewModel.SelectedServerStats, Mode=OneWay}"
+                                        FontSize="12"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                                
+                                <FontIcon 
+                                    Grid.Column="2" 
+                                    Glyph="&#xE76C;" 
+                                    FontSize="16"
+                                    VerticalAlignment="Center"/>
+                            </Grid>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- Quick Stats -->
+                <Border 
+                    CornerRadius="16"
+                    Padding="16"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Servers Count -->
+                        <StackPanel HorizontalAlignment="Center">
+                            <FontIcon Glyph="&#xE774;" Foreground="{StaticResource PrimaryBrush}"/>
+                            <TextBlock 
+                                Text="{x:Bind ViewModel.ServerCount, Mode=OneWay}"
+                                FontWeight="Bold"
+                                FontSize="18"
+                                HorizontalAlignment="Center"/>
+                            <TextBlock 
+                                Text="Servers"
+                                FontSize="12"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        
+                        <!-- Bandwidth -->
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                            <FontIcon Glyph="&#xEC4A;" Foreground="{StaticResource PrimaryBrush}"/>
+                            <TextBlock 
+                                Text="∞"
+                                FontWeight="Bold"
+                                FontSize="18"
+                                HorizontalAlignment="Center"/>
+                            <TextBlock 
+                                Text="Bandwidth"
+                                FontSize="12"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        
+                        <!-- Protocol -->
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                            <FontIcon Glyph="&#xE72E;" Foreground="{StaticResource PrimaryBrush}"/>
+                            <TextBlock 
+                                Text="WireGuard"
+                                FontWeight="Bold"
+                                FontSize="14"
+                                HorizontalAlignment="Center"/>
+                            <TextBlock 
+                                Text="Protocol"
+                                FontSize="12"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Server List (when expanded) -->
+                <Border 
+                    CornerRadius="16"
+                    Padding="16"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    Visibility="{x:Bind ViewModel.IsServerListVisible, Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <TextBlock 
+                            Text="Available Servers"
+                            FontWeight="SemiBold"
+                            FontSize="16"/>
+                        
+                        <ProgressRing 
+                            IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}"/>
+                        
+                        <ListView 
+                            ItemsSource="{x:Bind ViewModel.Servers, Mode=OneWay}"
+                            SelectionMode="Single"
+                            MaxHeight="300">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="8" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <TextBlock 
+                                            Text="{Binding CountryFlag}"
+                                            FontSize="28"
+                                            VerticalAlignment="Center"/>
+                                        
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock 
+                                                Text="{Binding CountryLong}"
+                                                FontWeight="Medium"/>
+                                            <TextBlock 
+                                                Text="{Binding HostName}"
+                                                FontSize="11"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        
+                                        <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                                            <TextBlock 
+                                                Text="{Binding FormattedSpeed}"
+                                                FontSize="12"
+                                                FontWeight="Medium"
+                                                Foreground="{StaticResource PrimaryBrush}"/>
+                                            <TextBlock 
+                                                FontSize="11"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                                                <Run Text="{Binding Ping}"/>
+                                                <Run Text="ms"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

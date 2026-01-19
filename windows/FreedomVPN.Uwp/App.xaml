@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="FreedomVPN.Uwp.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FreedomVPN.Uwp">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+            
+            <!-- Color Resources -->
+            <Color x:Key="PrimaryColor">#1E88E5</Color>
+            <Color x:Key="PrimaryDarkColor">#1565C0</Color>
+            <Color x:Key="AccentColor">#00C853</Color>
+            <Color x:Key="ConnectedColor">#4CAF50</Color>
+            <Color x:Key="DisconnectedColor">#9E9E9E</Color>
+            <Color x:Key="ConnectingColor">#FFC107</Color>
+            
+            <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
+            <SolidColorBrush x:Key="ConnectedBrush" Color="{StaticResource ConnectedColor}" />
+            <SolidColorBrush x:Key="DisconnectedBrush" Color="{StaticResource DisconnectedColor}" />
+            <SolidColorBrush x:Key="ConnectingBrush" Color="{StaticResource ConnectingColor}" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

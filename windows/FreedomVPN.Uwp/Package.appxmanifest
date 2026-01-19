@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  IgnorableNamespaces="uap rescap desktop com">
+
+  <Identity
+    Name="FreedomVPN"
+    Publisher="CN=FreedomVPN"
+    Version="1.0.0.0" />
+
+  <mp:PhoneIdentity PhoneProductId="a1b2c3d4-e5f6-7890-abcd-ef1234567890" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
+
+  <Properties>
+    <DisplayName>FreedomVPN</DisplayName>
+    <PublisherDisplayName>FreedomVPN</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="x-generate"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$">
+      
+      <uap:VisualElements
+        DisplayName="FreedomVPN"
+        Description="Secure, free VPN for Windows"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+
+      <!-- VPN Plugin Extension -->
+      <Extensions>
+        <uap:Extension Category="windows.vpnPlugIn">
+          <uap:VpnPlugIn ServerHostName="freedomvpn.local" CustomConfig="default" />
+        </uap:Extension>
+        
+        <!-- Background Task for VPN -->
+        <Extension Category="windows.backgroundTasks" EntryPoint="FreedomVPN.Uwp.VpnPlugin.VpnBackgroundTask">
+          <BackgroundTasks>
+            <Task Type="controlChannel" />
+            <Task Type="general" />
+          </BackgroundTasks>
+        </Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- Network capabilities -->
+    <Capability Name="internetClient" />
+    <Capability Name="internetClientServer" />
+    <Capability Name="privateNetworkClientServer" />
+    
+    <!-- VPN capability - Required for VPN functionality -->
+    <rescap:Capability Name="networkingVpnProvider" />
+    
+    <!-- Background execution -->
+    <rescap:Capability Name="extendedBackgroundTaskTime" />
+  </Capabilities>
+</Package>

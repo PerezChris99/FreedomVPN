@@ -1,0 +1,196 @@
+# =========================
+# FreedomVPN .gitignore
+# =========================
+
+# =========================
+# Android
+# =========================
+
+# Gradle
+.gradle/
+build/
+*.gradle.kts.swp
+
+# Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+local.properties
+
+# Android build
+android/app/build/
+android/build/
+android/.gradle/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Android signing
+*.jks
+*.keystore
+signing.properties
+
+# Generated files
+android/app/src/main/gen/
+android/captures/
+
+# NDK
+*.so
+obj/
+
+# =========================
+# Windows / Visual Studio
+# =========================
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+windows/FreedomVPN.Uwp/bin/
+windows/FreedomVPN.Uwp/obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM/
+ARM64/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+*.vcxproj.filters
+*.vcxproj.user
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Windows Store
+*.appx
+*.appxbundle
+*.appxupload
+AppPackages/
+BundleArtifacts/
+
+# =========================
+# Python
+# =========================
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# =========================
+# IDE & Editors
+# =========================
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# =========================
+# OS Generated
+# =========================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+
+# =========================
+# Project Specific
+# =========================
+
+# Secrets and credentials
+*.env
+.env.*
+secrets.json
+credentials.json
+google-services.json
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test outputs
+coverage/
+.coverage
+htmlcov/
+test-results/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+
+# Documentation build
+docs/_build/
+site/
+
+# Dependencies lock files (optional - uncomment if needed)
+# package-lock.json
+# yarn.lock
+
+# WireGuard configs (sensitive!)
+*.conf
+wg*.conf
