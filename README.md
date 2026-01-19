@@ -25,29 +25,193 @@ FreedomVPN exists to provide **free, fast, and untraceable** internet access to 
 
 ## 📊 Current Development Status
 
-| Component | Status | Progress |
-|-----------|--------|----------|
-| Project Structure | ✅ Complete | 100% |
-| Android UI | ✅ Complete | 100% |
-| Windows UI | ✅ Complete | 100% |
-| VPN Gate Integration | ✅ Complete | 100% |
-| Core VPN Service | 🔨 In Progress | 60% |
-| WireGuard Integration | 🔨 In Progress | 40% |
-| Obfuscation Layer | ⏳ Pending | 0% |
-| APK Distribution | ⏳ Pending | 0% |
+| Phase | Description | Status | Progress |
+|-------|-------------|--------|----------|
+| Phase 1 | Core VPN Functionality | ✅ Complete | 100% |
+| Phase 2 | Server Discovery & Smart Selection | ✅ Complete | 100% |
+| Phase 3 | Censorship Bypass Features | ✅ Complete | 100% |
+| Phase 4 | User Interface & Experience | ✅ Complete | 100% |
+| Phase 5 | Performance Optimization | ✅ Complete | 100% |
+| Phase 6 | Security Hardening | ✅ Complete | 100% |
+| Phase 7 | Distribution & Polish | ✅ Complete | 100% |
 
 ---
 
-## 🚀 DEVELOPMENT ROADMAP
+## ✨ Features
 
-### 📍 PHASE 1: Core VPN Functionality (Current Phase)
-**Goal:** Get basic VPN connection working
+### 🔒 Core VPN
+- **WireGuard Protocol** - Fast, modern, and secure
+- **VPN Gate Integration** - Access 100+ free servers worldwide
+- **Auto-Reconnect** - Never lose connection
+- **Real-time Statistics** - Speed, data usage, and connection time
 
-| Task | Description | Status |
-|------|-------------|--------|
-| 1.1 | Complete Android VpnService packet forwarding | 🔨 In Progress |
-| 1.2 | Implement WireGuard tunnel on Android | ⏳ Pending |
-| 1.3 | Implement WireGuard-NT on Windows | ⏳ Pending |
+### 🛡️ Censorship Bypass
+- **Traffic Obfuscation** - XOR, padding, and TLS camouflage
+- **Port Fallback** - Automatically try ports 443, 80, 53 if standard ports blocked
+- **DNS Leak Protection** - Secure DNS servers prevent tracking
+- **IPv6 Leak Protection** - Block IPv6 to prevent exposure
+- **Kill Switch** - Block all traffic if VPN disconnects
+
+### ⚡ Performance
+- **Parallel Connection** - Test multiple servers simultaneously
+- **Connection Pooling** - Quick reconnects
+- **MTU Discovery** - Optimal packet sizes
+- **Battery Optimization** - Adaptive power modes
+- **Split Tunneling** - Route specific apps through VPN
+
+### 🔐 Security
+- **Root Detection** - Warns on compromised devices
+- **Encrypted Storage** - Credentials protected by Android Keystore
+- **Certificate Pinning** - Prevents MITM attacks
+- **Secure Logging** - No sensitive data logged
+- **ProGuard Obfuscation** - Code protection
+
+### 📱 User Experience
+- **Modern Dark UI** - Sleek design optimized for VPN apps
+- **One-Tap Connect** - Quick connect to fastest server
+- **Country Selection** - Choose servers by country with flags
+- **Favorites & Recents** - Quick access to preferred servers
+- **Speed Graph** - Real-time network visualization
+
+---
+
+## 📥 Installation
+
+### Android
+1. Download the latest APK from [Releases](https://github.com/PerezChris99/FreedomVPN/releases)
+2. Enable "Install from Unknown Sources" in Settings
+3. Install the APK
+4. Open FreedomVPN and tap Connect!
+
+### Windows
+1. Download the latest MSIX from [Releases](https://github.com/PerezChris99/FreedomVPN/releases)
+2. Right-click and select "Install"
+3. Launch FreedomVPN from Start Menu
+
+---
+
+## 🛠️ Building from Source
+
+### Prerequisites
+- Android Studio Hedgehog or newer
+- JDK 17
+- Android SDK 34
+- Git
+
+### Android Build
+```bash
+# Clone the repository
+git clone https://github.com/PerezChris99/FreedomVPN.git
+cd FreedomVPN/android
+
+# Build debug APK
+./gradlew assembleDebug
+
+# Build release APK (requires signing key)
+./gradlew assembleRelease
+```
+
+### Windows Build
+```powershell
+cd FreedomVPN/windows
+dotnet build -c Release
+```
+
+---
+
+## 📖 Usage Guide
+
+### Quick Connect
+1. Open the app
+2. Tap the power button
+3. FreedomVPN automatically selects the fastest available server
+
+### Manual Server Selection
+1. Tap "Select Server" below the power button
+2. Browse servers by country
+3. Tap a server to connect
+4. Add servers to favorites with the ❤️ button
+
+### Settings
+- **Kill Switch** - Enable to block all traffic if VPN disconnects
+- **Obfuscation** - Set to "High" for censored networks
+- **Split Tunneling** - Choose which apps use VPN
+
+---
+
+## 🏗️ Architecture
+
+```
+FreedomVPN/
+├── android/                    # Android app (Kotlin)
+│   ├── app/src/main/java/com/freedomvpn/
+│   │   ├── vpn/               # Core VPN service
+│   │   │   ├── obfuscation/   # Traffic obfuscation
+│   │   │   ├── optimization/  # Performance optimization
+│   │   │   └── security/      # Kill switch, leak protection
+│   │   ├── security/          # App security (encryption, detection)
+│   │   ├── ui/                # Jetpack Compose UI
+│   │   │   ├── screens/       # Main screens
+│   │   │   ├── components/    # Reusable components
+│   │   │   └── theme/         # Dark theme
+│   │   ├── viewmodel/         # MVVM ViewModels
+│   │   ├── data/              # Data models and repositories
+│   │   └── update/            # Auto-update system
+│   └── build.gradle.kts
+├── windows/                    # Windows app (C#/WinUI 3)
+└── docs/                       # Documentation
+```
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Especially:
+- 🌍 Translations for different languages
+- 🐛 Bug reports and fixes
+- ✨ New obfuscation techniques
+- 📝 Documentation improvements
+
+### Development Setup
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+---
+
+## ⚠️ Disclaimer
+
+FreedomVPN is designed for legitimate privacy use cases:
+- Protecting privacy on public WiFi
+- Bypassing censorship in oppressive regions
+- Secure communication for journalists and activists
+
+**Do not use for illegal activities.** Users are responsible for compliance with local laws.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- [VPN Gate](https://www.vpngate.net/) - Free VPN relay servers
+- [WireGuard](https://www.wireguard.com/) - Modern VPN protocol
+- Android and Windows open-source communities
+
+---
+
+<p align="center">
+  Made with ❤️ for <b>Freedom</b>
+</p>
+<p align="center">
+  🇺🇬 Stand with Uganda 🇺🇬
+</p>
 | 1.4 | Test connection to VPN Gate servers | ⏳ Pending |
 | 1.5 | Implement auto-reconnect on connection drop | ⏳ Pending |
 | 1.6 | Add connection statistics (speed, data used) | ⏳ Pending |
