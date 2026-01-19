@@ -2,11 +2,15 @@ namespace FreedomVPN.Uwp.Models;
 
 /// <summary>
 /// Model representing a VPN Gate server
+/// 
+/// Supports both OpenVPN (VPN Gate native) and WireGuard protocols.
+/// For Uganda and censored regions, WireGuard is preferred when available.
 /// </summary>
 public class VpnGateServer
 {
     public string HostName { get; set; } = string.Empty;
     public string Ip { get; set; } = string.Empty;
+    public int Port { get; set; } = 443;
     public long Score { get; set; }
     public int Ping { get; set; }
     public long Speed { get; set; }
@@ -20,6 +24,11 @@ public class VpnGateServer
     public string Operator { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
     public string OpenVpnConfigBase64 { get; set; } = string.Empty;
+    
+    // WireGuard support (for compatible servers)
+    public string? WireGuardPublicKey { get; set; }
+    public int WireGuardPort { get; set; } = 51820;
+    public bool SupportsWireGuard => !string.IsNullOrEmpty(WireGuardPublicKey);
 
     /// <summary>
     /// Get speed in Mbps
