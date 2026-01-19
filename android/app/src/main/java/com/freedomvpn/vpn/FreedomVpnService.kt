@@ -13,6 +13,7 @@ import com.freedomvpn.FreedomVpnApplication
 import com.freedomvpn.R
 import com.freedomvpn.ui.MainActivity
 import com.freedomvpn.vpngate.VpnGateServer
+import com.freedomvpn.vpn.wireguard.WireGuardManager
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.config.Config
@@ -33,9 +34,18 @@ import javax.inject.Inject
  * 2. Routes all traffic through the VPN tunnel
  * 3. Handles connection lifecycle (connect, disconnect, reconnect)
  * 4. Shows persistent notification while connected
+ * 5. Supports both WireGuard and custom packet forwarding
+ * 
+ * For Uganda and other censored regions:
+ * - Automatic reconnection on network changes
+ * - Alternative port support for bypassing blocks
+ * - Minimal traffic fingerprint
  */
 @AndroidEntryPoint
 class FreedomVpnService : VpnService() {
+
+    @Inject
+    lateinit var wireGuardManager: WireGuardManager
 
     companion object {
         private const val TAG = "FreedomVpnService"
@@ -43,7 +53,11 @@ class FreedomVpnService : VpnService() {
         // Actions for controlling the service
         const val ACTION_CONNECT = "com.freedomvpn.CONNECT"
         const val ACTION_DISCONNECT = "com.freedomvpn.DISCONNECT"
+        const val ACTION_CONNECT_WIREGUARD = "com.freedomvpn.CONNECT_WIREGUARD"
         const val EXTRA_SERVER = "extra_server"
+        const val EXTRA_WG_PUBLIC_KEY = "extra_wg_public_key"
+        const val EXTRA_WG_ENDPOINT = "extra_wg_endpoint"
+        const val EXTRA_WG_PORT = "extra_wg_port"
         
         // VPN Configuration
         private const val VPN_MTU = 1280
@@ -96,6 +110,15 @@ class FreedomVpnService : VpnService() {
     // WireGuard backend (if using WireGuard)
     private var wireGuardBackend: GoBackend? = null
     private var currentTunnel: FreedomTunnel? = null
+    
+    // VPN Tunnel for packet forwarding
+    private var vpnTunnel: VpnTunnel? = null
+    
+    // Auto-reconnect settings
+    private var autoReconnect = true
+    private var reconnectAttempts = 0
+    private val maxReconnectAttempts = 5
+    private val reconnectDelayMs = 3000L
 
     inner class LocalBinder : Binder() {
         fun getService(): FreedomVpnService = this@FreedomVpnService
@@ -108,6 +131,8 @@ class FreedomVpnService : VpnService() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "VPN Service created")
+        // Initialize WireGuard manager
+        wireGuardManager.initialize(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -118,6 +143,12 @@ class FreedomVpnService : VpnService() {
                 val serverJson = intent.getStringExtra(EXTRA_SERVER)
                 // Parse server from JSON and connect
                 startVpnConnection()
+            }
+            ACTION_CONNECT_WIREGUARD -> {
+                val publicKey = intent.getStringExtra(EXTRA_WG_PUBLIC_KEY) ?: return START_STICKY
+                val endpoint = intent.getStringExtra(EXTRA_WG_ENDPOINT) ?: return START_STICKY
+                val port = intent.getIntExtra(EXTRA_WG_PORT, 51820)
+                startWireGuardConnection(publicKey, endpoint, port)
             }
             ACTION_DISCONNECT -> {
                 stopVpnConnection()
@@ -132,6 +163,59 @@ class FreedomVpnService : VpnService() {
         serviceScope.cancel()
         stopVpnConnection()
         Log.d(TAG, "VPN Service destroyed")
+    }
+
+    /**
+     * Start a WireGuard VPN connection
+     * Uses native WireGuard protocol for faster, more secure connections
+     */
+    fun startWireGuardConnection(
+        serverPublicKey: String,
+        serverEndpoint: String,
+        serverPort: Int = 51820
+    ) {
+        if (_connectionState.value == ConnectionState.CONNECTING || 
+            _connectionState.value == ConnectionState.CONNECTED) {
+            Log.w(TAG, "Already connected or connecting")
+            return
+        }
+
+        serviceScope.launch {
+            try {
+                _connectionState.value = ConnectionState.CONNECTING
+                
+                // Start foreground service with notification
+                startForeground(
+                    FreedomVpnApplication.VPN_NOTIFICATION_ID,
+                    createNotification("Connecting via WireGuard...")
+                )
+
+                // Connect using WireGuard
+                val success = wireGuardManager.connect(
+                    serverPublicKey = serverPublicKey,
+                    serverEndpoint = serverEndpoint,
+                    serverPort = serverPort
+                )
+
+                if (success) {
+                    _connectionState.value = ConnectionState.CONNECTED
+                    _connectionStats.value = ConnectionStats(
+                        connectedAt = System.currentTimeMillis(),
+                        serverName = serverEndpoint
+                    )
+                    updateNotification("Connected via WireGuard")
+                    Log.d(TAG, "WireGuard connected successfully")
+                } else {
+                    _connectionState.value = ConnectionState.ERROR
+                    updateNotification("Connection failed")
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "WireGuard connection failed", e)
+                _connectionState.value = ConnectionState.ERROR
+                updateNotification("Connection failed")
+            }
+        }
     }
 
     /**
@@ -186,6 +270,10 @@ class FreedomVpnService : VpnService() {
             try {
                 _connectionState.value = ConnectionState.DISCONNECTING
                 
+                // Stop packet forwarding
+                vpnTunnel?.stop()
+                vpnTunnel = null
+                
                 // Close VPN interface
                 vpnInterface?.close()
                 vpnInterface = null
@@ -202,6 +290,7 @@ class FreedomVpnService : VpnService() {
                 
                 _connectionState.value = ConnectionState.DISCONNECTED
                 _connectionStats.value = ConnectionStats()
+                reconnectAttempts = 0
                 
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -227,7 +316,7 @@ class FreedomVpnService : VpnService() {
             .addRoute(VPN_ROUTE, 0)  // Route all traffic
             .addDnsServer(VPN_DNS)
             .addDnsServer(VPN_DNS_ALT)
-            .setBlocking(true)
+            .setBlocking(false) // Non-blocking for async packet handling
         
         // Allow apps to bypass VPN if needed
         // builder.addDisallowedApplication("com.example.bypass")
@@ -238,16 +327,116 @@ class FreedomVpnService : VpnService() {
         
         Log.d(TAG, "VPN Interface established: ${vpnInterface?.fd}")
         
-        // At this point, you would typically:
-        // 1. Start WireGuard tunnel using the established interface
-        // 2. Or implement custom protocol handling
-        // 3. Forward packets between the VPN interface and the server
+        // Start packet forwarding with VpnTunnel
+        startPacketForwarding()
+    }
+    
+    /**
+     * Start packet forwarding between VPN interface and server
+     * This is the core of the VPN - all traffic flows through here
+     */
+    private fun startPacketForwarding() {
+        val server = currentServer ?: run {
+            Log.w(TAG, "No server configured, using default")
+            return
+        }
         
-        // For WireGuard integration:
-        // wireGuardBackend = GoBackend(this)
-        // val config = createWireGuardConfig(currentServer)
-        // currentTunnel = FreedomTunnel("freedom")
-        // wireGuardBackend?.setState(currentTunnel, Tunnel.State.UP, config)
+        val vpnFd = vpnInterface ?: run {
+            Log.e(TAG, "VPN interface not established")
+            return
+        }
+        
+        // Create and start the tunnel
+        vpnTunnel = VpnTunnel(
+            vpnInterface = vpnFd,
+            serverAddress = server.ip,
+            serverPort = server.port,
+            onStatsUpdate = { stats ->
+                // Update connection statistics
+                _connectionStats.value = _connectionStats.value.copy(
+                    bytesIn = stats.bytesIn,
+                    bytesOut = stats.bytesOut
+                )
+            },
+            onError = { error ->
+                Log.e(TAG, "Tunnel error", error)
+                handleTunnelError(error)
+            }
+        )
+        
+        vpnTunnel?.start()
+        Log.d(TAG, "Packet forwarding started")
+    }
+    
+    /**
+     * Handle tunnel errors with auto-reconnect
+     */
+    private fun handleTunnelError(error: Exception) {
+        serviceScope.launch {
+            if (autoReconnect && reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++
+                Log.d(TAG, "Attempting reconnect ($reconnectAttempts/$maxReconnectAttempts)")
+                
+                _connectionState.value = ConnectionState.CONNECTING
+                updateNotification("Reconnecting... ($reconnectAttempts/$maxReconnectAttempts)")
+                
+                delay(reconnectDelayMs * reconnectAttempts) // Exponential backoff
+                
+                try {
+                    // Stop current tunnel
+                    vpnTunnel?.stop()
+                    vpnInterface?.close()
+                    
+                    // Re-establish connection
+                    establishVpnInterface()
+                    
+                    _connectionState.value = ConnectionState.CONNECTED
+                    updateNotification("Connected to ${currentServer?.countryShort ?: "VPN"}")
+                    reconnectAttempts = 0
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Reconnect failed", e)
+                    if (reconnectAttempts >= maxReconnectAttempts) {
+                        _connectionState.value = ConnectionState.ERROR
+                        updateNotification("Connection failed")
+                    }
+                }
+            } else {
+                _connectionState.value = ConnectionState.ERROR
+                updateNotification("Connection failed - tap to retry")
+            }
+        }
+    }
+    
+    /**
+     * Get current tunnel statistics
+     */
+    fun getTunnelStats(): VpnTunnel.VpnStats? {
+        return vpnTunnel?.getStats()
+    }
+    
+    /**
+     * Enable or disable auto-reconnect
+     */
+    fun setAutoReconnect(enabled: Boolean) {
+        autoReconnect = enabled
+        Log.d(TAG, "Auto-reconnect ${if (enabled) "enabled" else "disabled"}")
+    }
+    
+    /**
+     * Protect a socket from VPN routing
+     * Call this for sockets that should bypass the VPN (e.g., tunnel socket itself)
+     */
+    fun protectSocket(socket: java.net.Socket): Boolean {
+        return protect(socket)
+    }
+    
+    fun protectSocket(socket: java.net.DatagramSocket): Boolean {
+        return protect(socket)
+    }
+    
+    fun protectSocket(fd: Int): Boolean {
+        return protect(fd)
     }
 
     /**
