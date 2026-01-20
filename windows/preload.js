@@ -24,6 +24,12 @@ contextBridge.exposeInMainWorld('freedomVPN', {
   runPrivacyCheck: () => ipcRenderer.invoke('run-privacy-check'),
   generateVpnIP: (serverId) => ipcRenderer.invoke('generate-vpn-ip', serverId),
   
+  // Real Servers & Location
+  fetchRealServers: () => ipcRenderer.invoke('fetch-real-servers'),
+  getAllServers: () => ipcRenderer.invoke('get-all-servers'),
+  getUserLocation: () => ipcRenderer.invoke('get-user-location'),
+  getNearestServers: (count) => ipcRenderer.invoke('get-nearest-servers', count),
+  
   // Settings
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FreedomVPN - Anti-Censorship Edition",
-  "version": "2.1.0",
-  "description": "Bypass censorship, protect your privacy. Built for Uganda and Africa. Routes browser traffic through free proxy servers.",
+  "version": "2.2.0",
+  "description": "Bypass censorship, protect your privacy. Built for Uganda and Africa. Routes browser traffic through real VPN servers with accurate location detection.",
   "permissions": [
     "proxy",
     "storage",
@@ -11,10 +11,14 @@
     "tabs",
     "alarms",
     "notifications",
-    "privacy"
+    "privacy",
+    "geolocation"
   ],
   "host_permissions": [
     "<all_urls>"
+  ],
+  "optional_permissions": [
+    "unlimitedStorage"
   ],
   "action": {
     "default_popup": "popup.html",
