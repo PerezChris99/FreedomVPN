@@ -611,6 +611,24 @@ input:checked + .slider:before {
   font-size: 10px;
 }
 
+.developer-credit {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.developer-credit a {
+  color: var(--primary-light);
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.developer-credit a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 /* Toast */
 .toast {
   position: fixed;

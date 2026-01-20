@@ -462,3 +462,7 @@ MIT License - Free to use, modify, and distribute.
 <p align="center">
   Made with ❤️ for Uganda and the world
 </p>
+
+<p align="center">
+  ⚡ Developed by <a href="https://perezchris.netlify.app"><strong>Nemesis</strong></a>
+</p>
