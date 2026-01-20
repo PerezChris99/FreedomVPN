@@ -432,6 +432,10 @@ function createTray() {
 }
 
 function updateTrayMenu() {
+  if (!tray) {
+    return; // Tray not available, skip update
+  }
+  
   const contextMenu = Menu.buildFromTemplate([
     {
       label: state.isConnected 
@@ -548,6 +552,15 @@ async function findBestServer() {
 
 // Connect to VPN server
 async function connect(serverId) {
+  // Auto-select a server if none provided
+  if (!serverId) {
+    const serverKeys = Object.keys(SERVERS);
+    if (serverKeys.length === 0) {
+      return { success: false, error: 'No servers available' };
+    }
+    serverId = serverKeys[0];
+  }
+  
   const server = SERVERS[serverId];
   if (!server) {
     return { success: false, error: 'Server not found' };
@@ -1045,6 +1058,14 @@ async function toggleMultiHop(enabled) {
 
 ipcMain.handle('minimize', () => {
   mainWindow?.minimize();
+});
+
+ipcMain.handle('maximize', () => {
+  if (mainWindow?.isMaximized()) {
+    mainWindow?.unmaximize();
+  } else {
+    mainWindow?.maximize();
+  }
 });
 
 ipcMain.handle('close', () => {

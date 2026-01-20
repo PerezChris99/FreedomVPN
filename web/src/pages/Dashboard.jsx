@@ -151,24 +151,26 @@ export default function Dashboard() {
           </motion.div>
 
           {/* Selected Server Card */}
-          <motion.div 
-            className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 border border-slate-700/50"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-          >
-            <div className="flex items-center gap-4">
-              <span className="text-3xl">{selectedServer.flag}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-medium truncate">{selectedServer.country}</p>
-                <p className="text-slate-400 text-sm">{selectedServer.city}</p>
+          {selectedServer && (
+            <motion.div 
+              className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 border border-slate-700/50"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              <div className="flex items-center gap-4">
+                <span className="text-3xl">{selectedServer.flag}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium truncate">{selectedServer.country}</p>
+                  <p className="text-slate-400 text-sm">{selectedServer.city}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-green-400 font-medium">{selectedServer.ping}ms</p>
+                  <p className="text-slate-500 text-xs">{selectedServer.load}% load</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-green-400 font-medium">{selectedServer.ping}ms</p>
-                <p className="text-slate-500 text-xs">{selectedServer.load}% load</p>
-              </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
 
           {/* Security Features Card */}
           <motion.div 

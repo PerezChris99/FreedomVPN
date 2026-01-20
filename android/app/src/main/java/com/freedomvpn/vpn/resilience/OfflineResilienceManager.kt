@@ -325,39 +325,35 @@ class OfflineResilienceManager @Inject constructor(
     // ==================== CONNECTION PERSISTENCE ====================
 
     @Serializable
-    data class ConnectionState(
+    data class SavedConnectionInfo(
         val serverId: String,
         val serverIp: String,
         val connectedAt: Long,
         val lastActivity: Long,
         val bytesUp: Long,
         val bytesDown: Long
-    ) {
-        companion object {
-            val UNKNOWN = com.freedomvpn.vpn.resilience.OfflineResilienceManager.ConnectionState.UNKNOWN
-        }
+    )
+
+    private var savedConnectionInfo: SavedConnectionInfo? = null
+
+    fun saveConnectionInfo(info: SavedConnectionInfo) {
+        savedConnectionInfo = info
+        prefs.edit().putString(KEY_CONNECTION_STATE, json.encodeToString(info)).apply()
     }
 
-    private var savedConnectionState: ConnectionState? = null
-
-    fun saveConnectionState(state: ConnectionState) {
-        savedConnectionState = state
-        prefs.edit().putString(KEY_CONNECTION_STATE, json.encodeToString(state)).apply()
-    }
-
-    fun loadConnectionState(): ConnectionState? {
-        if (savedConnectionState != null) return savedConnectionState
+    fun loadConnectionInfo(): SavedConnectionInfo? {
+        if (savedConnectionInfo != null) return savedConnectionInfo
         
         return try {
             val jsonString = prefs.getString(KEY_CONNECTION_STATE, null) ?: return null
-            json.decodeFromString<ConnectionState>(jsonString).also { savedConnectionState = it }
+            json.decodeFromString<SavedConnectionInfo>(jsonString).also { savedConnectionInfo = it }
         } catch (e: Exception) {
             null
         }
     }
 
-    fun clearConnectionState() {
-        savedConnectionState = null
+    fun clearConnectionInfo() {
+        savedConnectionInfo = null
         prefs.edit().remove(KEY_CONNECTION_STATE).apply()
     }
 
@@ -367,11 +363,11 @@ class OfflineResilienceManager @Inject constructor(
      * Attempt to reconnect using cached data when connection drops
      */
     suspend fun attemptQuickReconnect(): ReconnectResult {
-        val lastState = loadConnectionState() ?: return ReconnectResult.NO_SAVED_STATE
+        val lastInfo = loadConnectionInfo() ?: return ReconnectResult.NO_SAVED_STATE
         
         // Check if server IP is still reachable
         val serverReachable = try {
-            InetAddress.getByName(lastState.serverIp).isReachable(5000)
+            InetAddress.getByName(lastInfo.serverIp).isReachable(5000)
         } catch (e: Exception) {
             false
         }
@@ -392,7 +388,7 @@ class OfflineResilienceManager @Inject constructor(
             return ReconnectResult.ALL_SERVERS_UNREACHABLE
         }
 
-        return ReconnectResult.RECONNECT_TO_LAST(lastState.serverId, lastState.serverIp)
+        return ReconnectResult.RECONNECT_TO_LAST(lastInfo.serverId, lastInfo.serverIp)
     }
 
     sealed class ReconnectResult {

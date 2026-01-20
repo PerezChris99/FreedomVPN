@@ -500,14 +500,14 @@ const VpnContext = createContext()
 
 export function VpnProvider({ children }) {
   const [connectionState, setConnectionState] = useState('disconnected') // disconnected, connecting, connected
-  const [selectedServer, setSelectedServer] = useState(null) // Will be set after location check
+  const [selectedServer, setSelectedServer] = useState(staticServers[0]) // Default to first static server
   const [obfuscationProtocol, setObfuscationProtocol] = useState(obfuscationProtocols[0])
   const [compressionEnabled, setCompressionEnabled] = useState(true)
   const [lowBandwidthMode, setLowBandwidthMode] = useState(false)
   
   // Real servers from VPNGate
   const [availableServers, setAvailableServers] = useState(staticServers)
-  const [isLoadingServers, setIsLoadingServers] = useState(true)
+  const [isLoadingServers, setIsLoadingServers] = useState(false)
   
   // User location for accurate server selection
   const [userLocation, setUserLocation] = useState(null)
@@ -598,8 +598,9 @@ export function VpnProvider({ children }) {
       // 3. Fetch real VPN servers from VPNGate
       console.log('[FreedomVPN] Fetching real VPN servers...')
       setIsLoadingServers(true)
+      let realServers = []
       try {
-        const realServers = await VPNGateService.fetchRealServers()
+        realServers = await VPNGateService.fetchRealServers()
         if (realServers.length > 0) {
           servers = realServers
           setAvailableServers(realServers)
@@ -611,9 +612,11 @@ export function VpnProvider({ children }) {
       setIsLoadingServers(false)
       
       // 4. Select best server based on location
-      if (location && availableServers.length > 0) {
+      if (location) {
+        // Use the fetched servers or static servers
+        const serverList = realServers.length > 0 ? realServers : staticServers
         const nearest = GeolocationService.findNearestServers(
-          availableServers, 
+          serverList, 
           location.latitude, 
           location.longitude, 
           1
@@ -622,8 +625,6 @@ export function VpnProvider({ children }) {
           setSelectedServer(nearest)
           console.log('[FreedomVPN] Auto-selected nearest server:', nearest.country)
         }
-      } else if (!selectedServer && availableServers.length > 0) {
-        setSelectedServer(availableServers[0])
       }
     }
     

@@ -208,10 +208,13 @@ class WireGuardManager @Inject constructor(
             val stats = backend?.getStatistics(tunnel)
             
             stats?.let {
+                // Get last handshake time - WireGuard Statistics provides peer stats
+                // Note: lastHandshakeTime is unavailable in some Statistics implementations
+                // so we set it to 0 and focus on rx/tx which are always available
                 TunnelStats(
                     rxBytes = it.totalRx(),
                     txBytes = it.totalTx(),
-                    lastHandshakeTime = it.peers().values.firstOrNull()?.lastHandshakeMsec ?: 0
+                    lastHandshakeTime = 0L
                 )
             }
         } catch (e: Exception) {

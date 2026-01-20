@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('freedomVPN', {
   
   // Window controls
   minimize: () => ipcRenderer.invoke('minimize'),
+  maximize: () => ipcRenderer.invoke('maximize'),
   close: () => ipcRenderer.invoke('close'),
   
   // Event listeners

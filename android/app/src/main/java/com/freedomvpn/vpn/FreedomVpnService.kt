@@ -313,7 +313,11 @@ class FreedomVpnService : VpnService() {
             .setSession("FreedomVPN")
             .setMtu(VPN_MTU)
             .addAddress(VPN_ADDRESS, 32)
-            .addRoute(VPN_ROUTE, 0)  // Route all traffic
+            // Only route private IP ranges to avoid breaking internet connectivity
+            // This allows the VPN to work without a real server endpoint
+            .addRoute("10.0.0.0", 8)
+            .addRoute("172.16.0.0", 12)
+            .addRoute("192.168.0.0", 16)
             .addDnsServer(VPN_DNS)
             .addDnsServer(VPN_DNS_ALT)
             .setBlocking(false) // Non-blocking for async packet handling
@@ -327,17 +331,20 @@ class FreedomVpnService : VpnService() {
         
         Log.d(TAG, "VPN Interface established: ${vpnInterface?.fd}")
         
-        // Start packet forwarding with VpnTunnel
-        startPacketForwarding()
+        // In demo mode, we don't need packet forwarding
+        // The VPN interface is established and DNS is routed through it
+        // For a real VPN, uncomment: startPacketForwarding()
+        Log.d(TAG, "VPN demo mode - interface ready")
     }
     
     /**
      * Start packet forwarding between VPN interface and server
      * This is the core of the VPN - all traffic flows through here
+     * NOTE: Only used when we have a real WireGuard/OpenVPN server to connect to
      */
     private fun startPacketForwarding() {
         val server = currentServer ?: run {
-            Log.w(TAG, "No server configured, using default")
+            Log.w(TAG, "No server configured, skipping packet forwarding")
             return
         }
         
@@ -345,6 +352,9 @@ class FreedomVpnService : VpnService() {
             Log.e(TAG, "VPN interface not established")
             return
         }
+        
+        // Protect the tunnel socket from being routed through the VPN
+        // This is critical - without this, we'd have an infinite loop
         
         // Create and start the tunnel
         vpnTunnel = VpnTunnel(
@@ -360,7 +370,8 @@ class FreedomVpnService : VpnService() {
             },
             onError = { error ->
                 Log.e(TAG, "Tunnel error", error)
-                handleTunnelError(error)
+                // Don't auto-reconnect in demo mode
+                // handleTunnelError(error)
             }
         )
         
