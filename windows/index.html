@@ -3,196 +3,249 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';">
-  <title>FreedomVPN</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src *;">
+  <title>FreedomVPN - Anti-Censorship Edition</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app">
     <!-- Custom Title Bar -->
     <div class="titlebar" id="titlebar">
-      <div class="titlebar-logo">
+      <div class="titlebar-left">
         <span class="logo-icon">🛡️</span>
         <span class="logo-text">FreedomVPN</span>
+        <span class="version-badge">v2.0</span>
+      </div>
+      <div class="titlebar-center">
+        <span class="status-badge" id="globalStatus">
+          <span class="status-dot disconnected"></span>
+          <span>Not Protected</span>
+        </span>
       </div>
       <div class="titlebar-controls">
-        <button class="control-btn minimize" id="minimizeBtn">─</button>
-        <button class="control-btn close" id="closeBtn">✕</button>
+        <button class="control-btn minimize" id="minimizeBtn" title="Minimize">─</button>
+        <button class="control-btn maximize" id="maximizeBtn" title="Maximize">□</button>
+        <button class="control-btn close" id="closeBtn" title="Close">✕</button>
       </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="content">
-      <!-- Header -->
-      <header class="header">
-        <h1>FreedomVPN</h1>
-        <p class="tagline">Digital Freedom for Africa 🌍</p>
-        <p class="version">Anti-Censorship Edition v2.0</p>
-      </header>
-
-      <!-- Connection Status -->
-      <div class="status-card" id="statusCard">
-        <div class="status-indicator">
-          <div class="status-dot" id="statusDot"></div>
-          <span class="status-text" id="statusText">Not Connected</span>
-        </div>
+    <!-- Main Layout -->
+    <div class="main-layout">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <nav class="nav-menu">
+          <button class="nav-item active" data-page="dashboard">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">Dashboard</span>
+          </button>
+          <button class="nav-item" data-page="servers">
+            <span class="nav-icon">🌍</span>
+            <span class="nav-label">Servers</span>
+          </button>
+          <button class="nav-item" data-page="statistics">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Statistics</span>
+          </button>
+          <button class="nav-item" data-page="settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Settings</span>
+          </button>
+        </nav>
         
-        <button class="connect-btn" id="connectBtn">
-          <span class="btn-icon">🛡️</span>
-          <span class="btn-text" id="btnText">Connect</span>
-        </button>
-        
-        <p class="status-message" id="statusMessage">Your connection is not protected</p>
-        
-        <button class="quick-connect-btn" id="quickConnectBtn">
-          ⚡ Quick Connect (Best Server)
-        </button>
-      </div>
-
-      <!-- IP Display -->
-      <div class="ip-card" id="ipCard">
-        <div class="ip-header">
-          <span>🌍 Your IP Address</span>
-          <button class="refresh-btn" id="refreshIpBtn">🔄</button>
-        </div>
-        <div class="ip-display">
-          <span class="ip-address" id="ipAddress">Detecting...</span>
-        </div>
-        <div class="ip-location" id="ipLocation">
-          <span id="locationText">Detecting location...</span>
-        </div>
-      </div>
-
-      <!-- Server Selection -->
-      <div class="server-card">
-        <div class="server-header">
-          <span>Select Server</span>
-          <span class="server-count">24 servers</span>
-        </div>
-        
-        <div class="server-tabs">
-          <button class="tab active" data-region="africa">🌍 Africa</button>
-          <button class="tab" data-region="europe">🇪🇺 Europe</button>
-          <button class="tab" data-region="americas">🌎 Americas</button>
-          <button class="tab" data-region="cdn">☁️ CDN</button>
-        </div>
-        
-        <div class="server-list" id="serverList">
-          <!-- Populated by JavaScript -->
-        </div>
-      </div>
-
-      <!-- Statistics -->
-      <div class="stats-card">
-        <div class="stat">
-          <span class="stat-icon">⏱️</span>
-          <div class="stat-info">
-            <span class="stat-value" id="connectionTime">00:00:00</span>
-            <span class="stat-label">Time Connected</span>
+        <div class="sidebar-footer">
+          <div class="quick-stats">
+            <div class="quick-stat">
+              <span class="quick-stat-label">Session</span>
+              <span class="quick-stat-value" id="sessionTime">00:00:00</span>
+            </div>
+            <div class="quick-stat">
+              <span class="quick-stat-label">Data</span>
+              <span class="quick-stat-value" id="dataUsed">0 MB</span>
+            </div>
           </div>
         </div>
-        <div class="stat">
-          <span class="stat-icon">📶</span>
-          <div class="stat-info">
-            <span class="stat-value" id="latencyValue">--</span>
-            <span class="stat-label">Latency</span>
-          </div>
-        </div>
-        <div class="stat">
-          <span class="stat-icon">💰</span>
-          <div class="stat-info">
-            <span class="stat-value" id="moneySaved">0 UGX</span>
-            <span class="stat-label">Money Saved</span>
-          </div>
-        </div>
-        <div class="stat">
-          <span class="stat-icon">🛡️</span>
-          <div class="stat-info">
-            <span class="stat-value quality-indicator" id="qualityIndicator">--</span>
-            <span class="stat-label">Quality</span>
-          </div>
-        </div>
-      </div>
+      </aside>
 
-      <!-- Protection Info -->
-      <div class="protection-info" id="protectionInfo">
-        <span id="blocksEvaded"></span>
-      </div>
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Dashboard Page -->
+        <div class="page active" id="page-dashboard">
+          <div class="dashboard-grid">
+            <!-- Connection Panel -->
+            <section class="panel connection-panel">
+              <div class="panel-header">
+                <h2>Connection</h2>
+              </div>
+              
+              <div class="connection-display">
+                <div class="connection-visual">
+                  <div class="connection-ring" id="connectionRing">
+                    <div class="connection-inner">
+                      <span class="connection-icon" id="connectionIcon">🛡️</span>
+                    </div>
+                  </div>
+                  <span class="connection-status" id="connectionStatusText">Disconnected</span>
+                </div>
+                
+                <div class="connection-actions">
+                  <button class="primary-btn" id="connectBtn">
+                    <span>⚡ Quick Connect</span>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="current-server" id="currentServer">
+                <div class="server-info-row">
+                  <span class="info-label">Server</span>
+                  <span class="info-value" id="serverName">Not selected</span>
+                </div>
+                <div class="server-info-row">
+                  <span class="info-label">IP</span>
+                  <span class="info-value" id="currentIP">---</span>
+                </div>
+                <div class="server-info-row">
+                  <span class="info-label">Latency</span>
+                  <span class="info-value" id="currentLatency">-- ms</span>
+                </div>
+              </div>
+            </section>
 
-      <!-- Settings Button -->
-      <button class="settings-btn" id="settingsBtn">⚙️ Settings</button>
+            <!-- IP Panel -->
+            <section class="panel ip-panel">
+              <div class="panel-header">
+                <h2>IP Address</h2>
+                <button class="icon-btn" id="refreshIpBtn">🔄</button>
+              </div>
+              
+              <div class="ip-comparison">
+                <div class="ip-box real">
+                  <span class="ip-label">Your Real IP</span>
+                  <span class="ip-value" id="realIP">Detecting...</span>
+                  <span class="ip-location" id="realLocation">--</span>
+                </div>
+                <div class="ip-arrow">→</div>
+                <div class="ip-box vpn">
+                  <span class="ip-label">VPN IP</span>
+                  <span class="ip-value" id="vpnIP">Not Connected</span>
+                  <span class="ip-location" id="vpnLocation">--</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- Stats Panel -->
+            <section class="panel stats-panel">
+              <div class="panel-header">
+                <h2>Statistics</h2>
+              </div>
+              <div class="stats-grid">
+                <div class="stat-item">
+                  <span class="stat-icon">📥</span>
+                  <span class="stat-value" id="downloadSpeed">0 KB/s</span>
+                  <span class="stat-label">Download</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-icon">📤</span>
+                  <span class="stat-value" id="uploadSpeed">0 KB/s</span>
+                  <span class="stat-label">Upload</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-icon">💰</span>
+                  <span class="stat-value" id="moneySaved">0 UGX</span>
+                  <span class="stat-label">Saved</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- Servers Panel -->
+            <section class="panel servers-panel">
+              <div class="panel-header">
+                <h2>Servers</h2>
+              </div>
+              <div class="server-list" id="serverList">
+                <!-- Populated by JavaScript -->
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Servers Page -->
+        <div class="page" id="page-servers">
+          <div class="page-header">
+            <h1>All Servers</h1>
+          </div>
+          <div class="full-server-list" id="fullServerList">
+            <!-- Populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Statistics Page -->
+        <div class="page" id="page-statistics">
+          <div class="page-header">
+            <h1>Usage Statistics</h1>
+          </div>
+          <div class="stats-cards">
+            <div class="stat-card">
+              <span class="stat-card-value" id="totalDataUsed">0 GB</span>
+              <span class="stat-card-label">Total Data</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-card-value" id="totalMoneySaved">0 UGX</span>
+              <span class="stat-card-label">Money Saved</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-card-value" id="totalSessions">0</span>
+              <span class="stat-card-label">Sessions</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Page -->
+        <div class="page" id="page-settings">
+          <div class="page-header">
+            <h1>Settings</h1>
+          </div>
+          <div class="settings-list">
+            <div class="setting-item">
+              <span class="setting-label">Kill Switch</span>
+              <label class="toggle">
+                <input type="checkbox" id="killSwitch" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-item">
+              <span class="setting-label">Leak Protection</span>
+              <label class="toggle">
+                <input type="checkbox" id="leakProtection" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-item">
+              <span class="setting-label">Prefer African Servers</span>
+              <label class="toggle">
+                <input type="checkbox" id="preferAfrican" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="setting-item">
+              <span class="setting-label">Stealth Mode</span>
+              <label class="toggle">
+                <input type="checkbox" id="stealthMode" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
 
-    <!-- Settings Panel -->
-    <div class="settings-panel" id="settingsPanel">
-      <div class="settings-header">
-        <button class="back-btn" id="backBtn">← Back</button>
-        <h2>Settings</h2>
-      </div>
-      
-      <div class="settings-list">
-        <div class="setting-item">
-          <span class="setting-label">🌐 Language</span>
-          <select id="languageSelect">
-            <option value="en">English</option>
-            <option value="sw">Kiswahili</option>
-            <option value="lg">Luganda</option>
-            <option value="fr">Français</option>
-          </select>
-        </div>
-        
-        <div class="setting-item">
-          <span class="setting-label">🔌 Auto Connect on Startup</span>
-          <label class="toggle">
-            <input type="checkbox" id="autoConnectToggle">
-            <span class="slider"></span>
-          </label>
-        </div>
-        
-        <div class="setting-item">
-          <span class="setting-label">🚨 Kill Switch</span>
-          <label class="toggle">
-            <input type="checkbox" id="killSwitchToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-        
-        <div class="setting-item">
-          <span class="setting-label">🔒 Leak Protection</span>
-          <label class="toggle">
-            <input type="checkbox" id="leakProtectionToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-        
-        <div class="setting-item">
-          <span class="setting-label">👻 Stealth Mode</span>
-          <label class="toggle">
-            <input type="checkbox" id="stealthToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-        
-        <div class="setting-item">
-          <span class="setting-label">🌍 Prefer African Servers</span>
-          <label class="toggle">
-            <input type="checkbox" id="preferAfricanToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-        
-        <button class="force-failover-btn" id="forceFailoverBtn">
-          🔄 Force Server Switch
-        </button>
-      </div>
-      
-      <div class="about-section">
-        <p>FreedomVPN v2.0.0 - Anti-Censorship Edition</p>
-        <p class="about-tagline">Built for Uganda 🇺🇬 & Africa 🌍</p>
-        <p class="about-features">24 Servers • TLS Obfuscation • CDN Fallback • Kill Switch</p>
-        <p class="developer-credit">⚡ Developed by <a href="https://perezchris.netlify.app" target="_blank" rel="noopener noreferrer">Nemesis</a></p>
-      </div>
-    </div>
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <span>Protocol: WireGuard</span>
+      <span>|</span>
+      <span>Encryption: ChaCha20-Poly1305</span>
+      <span class="spacer"></span>
+      <span>FreedomVPN © 2026</span>
+    </footer>
   </div>
 
   <script src="renderer.js"></script>
