@@ -19,11 +19,21 @@ contextBridge.exposeInMainWorld('freedomVPN', {
   getStats: () => ipcRenderer.invoke('get-stats'),
   getRealIP: () => ipcRenderer.invoke('get-real-ip'),
   
+  // Enhanced IP Detection & Privacy
+  getIPDetails: () => ipcRenderer.invoke('get-ip-details'),
+  runPrivacyCheck: () => ipcRenderer.invoke('run-privacy-check'),
+  generateVpnIP: (serverId) => ipcRenderer.invoke('generate-vpn-ip', serverId),
+  
   // Settings
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   
   // Actions
   forceFailover: () => ipcRenderer.invoke('force-failover'),
+  
+  // Multi-Hop
+  toggleMultiHop: (enabled) => ipcRenderer.invoke('toggle-multihop', enabled),
+  getMultiHopState: () => ipcRenderer.invoke('get-multihop-state'),
+  setMultiHopPreset: (preset) => ipcRenderer.invoke('set-multihop-preset', preset),
   
   // Window controls
   minimize: () => ipcRenderer.invoke('minimize'),
@@ -38,6 +48,12 @@ contextBridge.exposeInMainWorld('freedomVPN', {
   },
   onStatsUpdate: (callback) => {
     ipcRenderer.on('stats-update', (event, data) => callback(data));
+  },
+  onPrivacyUpdate: (callback) => {
+    ipcRenderer.on('privacy-update', (event, data) => callback(data));
+  },
+  onMultiHopUpdate: (callback) => {
+    ipcRenderer.on('multihop-chain-update', (event, data) => callback(data));
   },
   
   // Remove listeners

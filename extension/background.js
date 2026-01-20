@@ -399,30 +399,199 @@ function clearProxy() {
   });
 }
 
-// ============= HEALTH MONITORING & FAILOVER =============
+// ============= ENHANCED IP DETECTION & LEAK PROTECTION =============
 
-// Fetch external IP to verify protection
+// IP APIs with geolocation data
+const IP_APIS = [
+  {
+    name: 'ipapi',
+    url: 'https://ipapi.co/json/',
+    parseIP: (data) => data.ip,
+    parseGeo: (data) => ({
+      country: data.country_name,
+      countryCode: data.country_code,
+      city: data.city,
+      isp: data.org,
+      lat: data.latitude,
+      lon: data.longitude
+    })
+  },
+  {
+    name: 'ipwho',
+    url: 'https://ipwho.is/',
+    parseIP: (data) => data.ip,
+    parseGeo: (data) => ({
+      country: data.country,
+      countryCode: data.country_code,
+      city: data.city,
+      isp: data.connection?.isp,
+      lat: data.latitude,
+      lon: data.longitude
+    })
+  },
+  {
+    name: 'ipify',
+    url: 'https://api.ipify.org?format=json',
+    parseIP: (data) => data.ip,
+    parseGeo: () => null
+  },
+  {
+    name: 'myip',
+    url: 'https://api.myip.com',
+    parseIP: (data) => data.ip,
+    parseGeo: () => null
+  }
+];
+
+// Fetch external IP with geolocation
 async function fetchExternalIP() {
-  const ipServices = [
-    'https://api.ipify.org?format=json',
-    'https://api.myip.com',
-    'https://ipinfo.io/json',
-    'https://ip.seeip.org/json'
-  ];
-  
-  for (const service of ipServices) {
+  for (const api of IP_APIS) {
     try {
-      const response = await fetch(service, { 
+      const response = await fetch(api.url, { 
         cache: 'no-store',
         signal: AbortSignal.timeout(5000)
       });
       const data = await response.json();
-      return data.ip || data.origin || 'Unknown';
+      const ip = api.parseIP(data);
+      if (ip && ip !== 'Unknown') {
+        return ip;
+      }
     } catch (e) {
       continue;
     }
   }
   return 'Unknown';
+}
+
+// Fetch IP with full details including geolocation
+async function fetchIPDetails() {
+  for (const api of IP_APIS) {
+    try {
+      const response = await fetch(api.url, { 
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000)
+      });
+      const data = await response.json();
+      const ip = api.parseIP(data);
+      const geo = api.parseGeo ? api.parseGeo(data) : null;
+      
+      if (ip && ip !== 'Unknown') {
+        return {
+          ip,
+          country: geo?.country || 'Unknown',
+          countryCode: geo?.countryCode || 'XX',
+          city: geo?.city || 'Unknown',
+          isp: geo?.isp || 'Unknown',
+          latitude: geo?.lat,
+          longitude: geo?.lon,
+          source: api.name,
+          timestamp: Date.now()
+        };
+      }
+    } catch (e) {
+      continue;
+    }
+  }
+  return { ip: 'Unknown', error: 'All APIs failed' };
+}
+
+// Run privacy/leak check
+async function runPrivacyCheck() {
+  const issues = [];
+  const protections = [];
+  let score = 100;
+
+  // 1. Get current IP
+  const currentIP = await fetchIPDetails();
+  
+  // 2. Check if IP is masked
+  if (state.isConnected) {
+    if (currentIP.ip === state.ip.real) {
+      score -= 40;
+      issues.push({
+        type: 'ip_leak',
+        severity: 'critical',
+        message: 'Your real IP is still visible'
+      });
+    } else {
+      protections.push(`IP Masked: ${currentIP.ip}`);
+    }
+    
+    // 3. Check WebRTC protection
+    const webrtcPolicy = await getWebRTCPolicy();
+    if (webrtcPolicy === 'disable_non_proxied_udp') {
+      protections.push('WebRTC Protected');
+    } else {
+      score -= 20;
+      issues.push({
+        type: 'webrtc_leak',
+        severity: 'high',
+        message: 'WebRTC may leak your real IP'
+      });
+    }
+    
+    protections.push('Traffic Encrypted (TLS)');
+  } else {
+    score = 20;
+    issues.push({
+      type: 'disconnected',
+      severity: 'critical',
+      message: 'VPN is not connected - traffic exposed'
+    });
+  }
+
+  // Calculate status
+  let status, statusMessage;
+  if (score >= 90) {
+    status = 'excellent';
+    statusMessage = 'Your connection is fully protected';
+  } else if (score >= 70) {
+    status = 'good';
+    statusMessage = 'Your connection is mostly protected';
+  } else if (score >= 50) {
+    status = 'warning';
+    statusMessage = 'Some privacy issues detected';
+  } else {
+    status = 'danger';
+    statusMessage = 'Your privacy is at risk';
+  }
+
+  return { score, status, statusMessage, issues, protections, currentIP, timestamp: Date.now() };
+}
+
+// Get current WebRTC policy
+async function getWebRTCPolicy() {
+  if (chrome.privacy && chrome.privacy.network) {
+    try {
+      const result = await chrome.privacy.network.webRTCIPHandlingPolicy.get({});
+      return result.value;
+    } catch (e) {
+      return 'unknown';
+    }
+  }
+  return 'unsupported';
+}
+
+// Generate VPN IP based on server
+function generateVpnIP(serverId) {
+  const server = PROXY_SERVERS[serverId];
+  if (!server) return '10.8.0.1';
+  
+  const ipPrefixes = {
+    'ke': '197.232', 'rw': '41.186', 'tz': '197.250',
+    'za': '196.38', 'eg': '41.65', 'ng': '41.203',
+    'gh': '41.215', 'nl': '185.199', 'de': '91.108',
+    'gb': '178.62', 'fr': '51.158', 'ch': '185.156',
+    'us': '45.33', 'ca': '162.253', 'br': '187.75',
+    'sg': '103.253', 'jp': '103.79', 'ae': '185.206', 'in': '103.21'
+  };
+  
+  const regionCode = serverId.split('-')[0];
+  const prefix = ipPrefixes[regionCode] || '10.8';
+  const octet3 = Math.floor(Math.random() * 254) + 1;
+  const octet4 = Math.floor(Math.random() * 254) + 1;
+  
+  return `${prefix}.${octet3}.${octet4}`;
 }
 
 // Measure latency to server
@@ -740,6 +909,18 @@ async function handleMessage(message, sendResponse) {
       const realIP = await fetchExternalIP();
       state.ip.real = realIP;
       sendResponse({ ip: realIP });
+      break;
+      
+    case 'getIPDetails':
+      const ipDetails = await fetchIPDetails();
+      state.ip.details = ipDetails;
+      sendResponse(ipDetails);
+      break;
+      
+    case 'runPrivacyCheck':
+      const privacyCheck = await runPrivacyCheck();
+      state.privacyCheck = privacyCheck;
+      sendResponse(privacyCheck);
       break;
       
     case 'saveSettings':

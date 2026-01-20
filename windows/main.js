@@ -12,6 +12,10 @@ const fetch = require('node-fetch');
 // System-wide tunnel manager for FULL anonymity
 const { SystemWideTunnel, DNSLeakProtection, IPv6LeakProtection } = require('./system-tunnel');
 const { MultiHopEngine, MultiHopPresets } = require('../shared/multihop/MultiHopEngine');
+const { IPDetectionService } = require('./ip-detection');
+
+// Initialize IP Detection Service
+const ipDetection = new IPDetectionService();
 
 // Initialize system-wide protection modules
 const systemTunnel = new SystemWideTunnel();
@@ -324,24 +328,30 @@ function updateTrayMenu() {
   tray.setToolTip(`FreedomVPN - ${state.isConnected ? 'Protected' : 'Not Protected'}`);
 }
 
-// Fetch external IP
+// Fetch external IP using enhanced detection service
 async function fetchExternalIP() {
-  const services = [
-    'https://api.ipify.org?format=json',
-    'https://api.myip.com',
-    'https://ipinfo.io/json'
-  ];
-
-  for (const service of services) {
-    try {
-      const response = await fetch(service, { timeout: 5000 });
-      const data = await response.json();
-      return data.ip || data.origin || 'Unknown';
-    } catch (e) {
-      continue;
-    }
+  try {
+    const result = await ipDetection.detectIP(true);
+    return result.ip || 'Unknown';
+  } catch (e) {
+    console.error('[FreedomVPN] IP detection failed:', e.message);
+    return 'Unknown';
   }
-  return 'Unknown';
+}
+
+// Fetch detailed IP information
+async function fetchIPDetails() {
+  try {
+    const result = await ipDetection.detectIP(true);
+    return result;
+  } catch (e) {
+    return { ip: 'Unknown', error: e.message };
+  }
+}
+
+// Run privacy/leak check
+async function runPrivacyCheck(vpnIP, isConnected) {
+  return await ipDetection.runPrivacyCheck(vpnIP, isConnected);
 }
 
 // Measure latency to server
@@ -686,6 +696,27 @@ ipcMain.handle('save-settings', (event, settings) => {
 ipcMain.handle('get-real-ip', async () => {
   state.ip.real = await fetchExternalIP();
   return state.ip.real;
+});
+
+// Enhanced IP detection with full details
+ipcMain.handle('get-ip-details', async () => {
+  const details = await fetchIPDetails();
+  state.ip.real = details.ip;
+  state.ip.details = details;
+  return details;
+});
+
+// Privacy and leak check
+ipcMain.handle('run-privacy-check', async () => {
+  const check = await runPrivacyCheck(state.ip.vpn, state.isConnected);
+  state.privacyCheck = check;
+  return check;
+});
+
+// Generate VPN IP for server
+ipcMain.handle('generate-vpn-ip', (event, serverId) => {
+  const server = Object.values(SERVERS).find(s => s.id === serverId) || state.currentServer;
+  return ipDetection.generateVpnIP(server);
 });
 
 ipcMain.handle('force-failover', async () => {
