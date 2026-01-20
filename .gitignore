@@ -153,12 +153,30 @@ $RECYCLE.BIN/
 .directory
 
 # =========================
+# Node.js / Web / Electron
+# =========================
+
+node_modules/
+web/node_modules/
+windows/node_modules/
+extension/node_modules/
+web/dist/
+windows/dist/
+*.tsbuildinfo
+.npm/
+.eslintcache
+.parcel-cache/
+
+# =========================
 # Project Specific
 # =========================
 
 # Secrets and credentials
 *.env
 .env.*
+.env.local
+.env.development
+.env.production
 secrets.json
 credentials.json
 google-services.json
