@@ -96,6 +96,11 @@ let state = {
   ip: {
     real: null,
     masked: null
+  },
+  multiHop: {
+    enabled: false,
+    chain: [],
+    preset: 'BALANCED'
   }
 };
 
@@ -303,6 +308,184 @@ function setupEventListeners() {
   if (failoverBtn) {
     failoverBtn.addEventListener('click', forceFailover);
   }
+  
+  // Multi-Hop toggle
+  const multiHopToggle = document.getElementById('multiHopToggle');
+  if (multiHopToggle) {
+    multiHopToggle.addEventListener('change', (e) => {
+      toggleMultiHop(e.target.checked);
+    });
+  }
+  
+  // Multi-Hop preset selector
+  const multiHopPreset = document.getElementById('multiHopPreset');
+  if (multiHopPreset) {
+    multiHopPreset.addEventListener('change', (e) => {
+      setMultiHopPreset(e.target.value);
+    });
+  }
+}
+
+// Multi-Hop Presets Configuration
+const MULTIHOP_PRESETS = {
+  FAST: { hopCount: 2, diverse: false, speed: 90 },
+  BALANCED: { hopCount: 2, diverse: true, speed: 88 },
+  MAXIMUM: { hopCount: 3, diverse: true, speed: 80 },
+  PARANOID: { hopCount: 4, diverse: true, speed: 70 }
+};
+
+// Toggle Multi-Hop Mode
+async function toggleMultiHop(enabled) {
+  console.log('[MultiHop] Toggle:', enabled);
+  
+  if (enabled) {
+    // Build multi-hop chain
+    const preset = MULTIHOP_PRESETS[state.multiHop.preset];
+    const chain = buildMultiHopChain(preset.hopCount, preset.diverse);
+    
+    if (chain.length >= 2) {
+      state.multiHop.enabled = true;
+      state.multiHop.chain = chain;
+      
+      // Update UI
+      updateMultiHopDisplay();
+      showToast(`Multi-Hop activated! ${chain.length} servers 🔀`);
+      
+      // If connected, re-route through chain
+      if (state.isConnected) {
+        // Reconnect with multi-hop routing
+        await reconnectWithMultiHop();
+      }
+    } else {
+      showToast('Not enough servers for Multi-Hop');
+      document.getElementById('multiHopToggle').checked = false;
+    }
+  } else {
+    state.multiHop.enabled = false;
+    state.multiHop.chain = [];
+    updateMultiHopDisplay();
+    showToast('Multi-Hop disabled');
+  }
+}
+
+// Build Multi-Hop chain
+function buildMultiHopChain(hopCount, diverse) {
+  const allServers = Object.entries(state.servers);
+  if (allServers.length < hopCount) return [];
+  
+  const chain = [];
+  const usedRegions = new Set();
+  
+  // Sort by latency (prefer faster servers)
+  const sorted = allServers.sort((a, b) => {
+    const latA = a[1].latency || 100;
+    const latB = b[1].latency || 100;
+    return latA - latB;
+  });
+  
+  for (let i = 0; i < hopCount && sorted.length > 0; i++) {
+    let selected = null;
+    
+    if (diverse && usedRegions.size > 0) {
+      // Find server in different region
+      const idx = sorted.findIndex(([id, s]) => !usedRegions.has(getRegion(id)));
+      if (idx !== -1) {
+        selected = sorted.splice(idx, 1)[0];
+      }
+    }
+    
+    if (!selected && sorted.length > 0) {
+      selected = sorted.shift();
+    }
+    
+    if (selected) {
+      const [id, server] = selected;
+      chain.push({
+        id,
+        ...server,
+        isEntry: i === 0,
+        isExit: i === hopCount - 1
+      });
+      usedRegions.add(getRegion(id));
+    }
+  }
+  
+  return chain;
+}
+
+// Get region from server ID
+function getRegion(serverId) {
+  for (const [region, ids] of Object.entries(serverRegions)) {
+    if (ids.includes(serverId)) return region;
+  }
+  return 'unknown';
+}
+
+// Update Multi-Hop display
+function updateMultiHopDisplay() {
+  const chainEl = document.getElementById('multiHopChain');
+  const routeEl = document.getElementById('multiHopRoute');
+  const speedEl = document.getElementById('multiHopSpeed');
+  
+  if (!chainEl || !routeEl) return;
+  
+  if (state.multiHop.enabled && state.multiHop.chain.length > 0) {
+    chainEl.style.display = 'block';
+    
+    // Build route display
+    const routeHTML = ['<span style="color: #22c55e;">You</span>'];
+    state.multiHop.chain.forEach((hop, i) => {
+      const style = hop.isExit 
+        ? 'background: rgba(147,51,234,0.3); color: #c084fc; padding: 2px 6px; border-radius: 4px;'
+        : 'color: #888;';
+      routeHTML.push(`<span style="color: #555;">→</span>`);
+      routeHTML.push(`<span style="${style}">${hop.flag} ${hop.city}</span>`);
+    });
+    routeHTML.push(`<span style="color: #555;">→</span>`);
+    routeHTML.push(`<span style="color: #3b82f6;">🌐 Web</span>`);
+    
+    routeEl.innerHTML = routeHTML.join(' ');
+    
+    // Update speed estimate
+    const preset = MULTIHOP_PRESETS[state.multiHop.preset];
+    if (speedEl) {
+      speedEl.textContent = `~${preset.speed}% speed`;
+    }
+  } else {
+    chainEl.style.display = 'none';
+  }
+}
+
+// Set Multi-Hop preset
+function setMultiHopPreset(presetKey) {
+  state.multiHop.preset = presetKey;
+  
+  if (state.multiHop.enabled) {
+    // Rebuild chain with new preset
+    const preset = MULTIHOP_PRESETS[presetKey];
+    state.multiHop.chain = buildMultiHopChain(preset.hopCount, preset.diverse);
+    updateMultiHopDisplay();
+  }
+}
+
+// Reconnect with Multi-Hop routing
+async function reconnectWithMultiHop() {
+  if (!state.multiHop.enabled || state.multiHop.chain.length === 0) return;
+  
+  showToast('Routing through multi-hop chain...');
+  
+  // The exit server is our final destination
+  const exitServer = state.multiHop.chain[state.multiHop.chain.length - 1];
+  
+  // Send to background to set up proxy chain
+  chrome.runtime.sendMessage({
+    action: 'setMultiHop',
+    chain: state.multiHop.chain
+  }, (response) => {
+    if (response?.success) {
+      showToast(`Multi-Hop active: ${state.multiHop.chain.map(h => h.flag).join('→')}`);
+    }
+  });
 }
 
 // Quick connect to best server

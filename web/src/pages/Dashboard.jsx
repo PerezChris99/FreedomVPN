@@ -2,8 +2,9 @@ import { motion } from 'framer-motion'
 import { useVpn } from '../context/VpnContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useStealth } from '../context/StealthContext'
-import { Shield, ShieldCheck, ShieldX, Wifi, Globe, Zap, TrendingDown, Clock, DollarSign, AlertTriangle, MapPin, Server, Loader2, Copy, Check } from 'lucide-react'
-import { useState } from 'react'
+import { Shield, ShieldCheck, ShieldX, Wifi, Globe, Zap, TrendingDown, Clock, DollarSign, AlertTriangle, MapPin, Server, Loader2, Copy, Check, Layers, ChevronRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import multiHopService, { MultiHopPresets } from '../services/multiHopService'
 
 export default function Dashboard() {
   const { 
@@ -24,6 +25,16 @@ export default function Dashboard() {
   const { t } = useLanguage()
   const { stealthMode, activatePanic } = useStealth()
   const [copiedIP, setCopiedIP] = useState(false)
+  
+  // Multi-Hop State
+  const [multiHopState, setMultiHopState] = useState(multiHopService.getState())
+  const [showPresets, setShowPresets] = useState(false)
+  
+  // Subscribe to multi-hop changes
+  useEffect(() => {
+    const unsubscribe = multiHopService.subscribe(setMultiHopState)
+    return unsubscribe
+  }, [])
 
   const isConnected = connectionState === 'connected'
   const isConnecting = connectionState === 'connecting'
@@ -212,6 +223,113 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      {/* Multi-Hop Toggle - Server Bouncing for Maximum Anonymity */}
+      <motion.div 
+        className={`rounded-2xl p-4 mb-4 border-2 transition-all ${
+          multiHopState.isEnabled 
+            ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border-purple-500/50' 
+            : 'glass border-transparent'
+        }`}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              multiHopState.isEnabled ? 'bg-purple-500' : 'bg-slate-700'
+            }`}>
+              <Layers className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-white font-medium">Multi-Hop</p>
+              <p className="text-slate-400 text-xs">Server bouncing for max anonymity</p>
+            </div>
+          </div>
+          <button
+            onClick={() => multiHopService.toggle()}
+            className={`relative w-14 h-8 rounded-full transition-all duration-200 ${
+              multiHopState.isEnabled 
+                ? 'bg-purple-500' 
+                : 'bg-slate-600'
+            }`}
+          >
+            <span className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all duration-200 ${
+              multiHopState.isEnabled ? 'left-7' : 'left-1'
+            }`} />
+          </button>
+        </div>
+        
+        {/* Multi-Hop Chain Display */}
+        {multiHopState.isEnabled && multiHopState.chain.length > 0 && (
+          <div className="mt-3 p-3 bg-black/30 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-slate-400 text-xs">Traffic Route</span>
+              <span className="text-purple-400 text-xs font-medium">
+                {Math.round(multiHopState.speedRetention * 100)}% speed
+              </span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <div className="flex items-center gap-1 text-green-400 text-xs">
+                <span>You</span>
+              </div>
+              {multiHopState.chain.map((hop, index) => (
+                <div key={hop.id} className="flex items-center gap-1">
+                  <ChevronRight className="w-4 h-4 text-slate-500" />
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${
+                    hop.isExit ? 'bg-purple-500/30 text-purple-300' : 'bg-slate-700/50 text-slate-300'
+                  }`}>
+                    <span className="text-sm">{hop.flag}</span>
+                    <span className="text-xs font-medium">{hop.city}</span>
+                  </div>
+                </div>
+              ))}
+              <ChevronRight className="w-4 h-4 text-slate-500" />
+              <div className="flex items-center gap-1 text-blue-400 text-xs">
+                <Globe className="w-3 h-3" />
+                <span>Web</span>
+              </div>
+            </div>
+            <p className="mt-2 text-slate-500 text-xs text-center">
+              Your exit IP: {multiHopState.exitServer?.city}, {multiHopState.exitServer?.country}
+            </p>
+          </div>
+        )}
+        
+        {/* Preset Selector */}
+        <button
+          onClick={() => setShowPresets(!showPresets)}
+          className="mt-3 w-full flex items-center justify-between p-2 bg-slate-800/50 rounded-lg hover:bg-slate-700/50 transition-colors"
+        >
+          <span className="text-slate-400 text-sm">
+            Preset: <span className="text-white font-medium">{multiHopState.preset.label}</span>
+          </span>
+          <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${showPresets ? 'rotate-90' : ''}`} />
+        </button>
+        
+        {showPresets && (
+          <div className="mt-2 space-y-1">
+            {Object.entries(MultiHopPresets).map(([key, preset]) => (
+              <button
+                key={key}
+                onClick={() => {
+                  multiHopService.setPreset(key)
+                  setShowPresets(false)
+                }}
+                className={`w-full p-2 rounded-lg text-left transition-colors ${
+                  multiHopState.preset.label === preset.label
+                    ? 'bg-purple-500/30 border border-purple-500/50'
+                    : 'bg-slate-800/30 hover:bg-slate-700/50'
+                }`}
+              >
+                <span className="text-white text-sm font-medium">{preset.label}</span>
+                <span className="text-slate-400 text-xs ml-2">{preset.description}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </motion.div>
+
       {/* Statistics Grid */}
       {isConnected && (
         <motion.div 
@@ -310,6 +428,47 @@ export default function Dashboard() {
           <span className="font-medium">{t('panicButton')} (Press P x3)</span>
         </motion.button>
       )}
+      
+      {/* System-Wide Protection Notice */}
+      <motion.div
+        className="mt-6 rounded-2xl p-4 border border-orange-500/30"
+        style={{ background: 'linear-gradient(135deg, rgba(255,165,0,0.1) 0%, rgba(255,140,0,0.05) 100%)' }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="w-5 h-5 text-orange-400" />
+          </div>
+          <div>
+            <p className="text-orange-400 font-medium text-sm mb-1">
+              ⚠️ Web App = Browser Traffic Only
+            </p>
+            <p className="text-slate-400 text-xs mb-3">
+              This web version only protects browser traffic. For <strong className="text-white">FULL SYSTEM-WIDE protection</strong> (all apps, games, system services), download our Desktop or Mobile app.
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <a 
+                href="https://github.com/FreedomVPN/releases" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+              >
+                🖥️ Windows App
+              </a>
+              <a 
+                href="https://github.com/FreedomVPN/releases" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+              >
+                📱 Android App
+              </a>
+            </div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   )
 }
