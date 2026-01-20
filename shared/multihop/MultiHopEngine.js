@@ -471,11 +471,11 @@ class ProxyChainManager {
 
 // Export for different module systems
 if (typeof module !== 'undefined' && module.exports) {
+  // CommonJS (Node.js, Electron)
   module.exports = { MultiHopEngine, MultiHopPresets, ProxyChainManager };
 } else if (typeof window !== 'undefined') {
+  // Browser global
   window.MultiHopEngine = MultiHopEngine;
   window.MultiHopPresets = MultiHopPresets;
   window.ProxyChainManager = ProxyChainManager;
 }
-
-export { MultiHopEngine, MultiHopPresets, ProxyChainManager };

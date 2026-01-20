@@ -41,119 +41,119 @@ export default function Servers() {
   }
 
   return (
-    <div className="min-h-screen p-4 pt-8">
+    <div className="min-h-screen p-3 sm:p-4 lg:p-8 pt-6 sm:pt-8">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-1">{t('servers')}</h1>
-        <p className="text-slate-400 text-sm">{filteredServers.length} servers available</p>
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1">{t('servers')}</h1>
+        <p className="text-slate-400 text-xs sm:text-sm">{filteredServers.length} servers available</p>
       </div>
 
       {/* Search */}
       <div className="relative mb-4">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
         <input
           type="text"
           placeholder="Search countries or cities..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-slate-800 text-white pl-12 pr-4 py-3 rounded-xl border border-slate-700 focus:outline-none focus:border-green-500 transition-colors"
+          className="w-full bg-slate-800 text-white text-sm sm:text-base pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 rounded-xl border border-slate-700 focus:outline-none focus:border-green-500 transition-colors"
         />
       </div>
 
       {/* Region tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2 scrollbar-hide -mx-3 sm:mx-0 px-3 sm:px-0">
         {regions.map(region => (
           <button
             key={region.id}
             onClick={() => setSelectedRegion(region.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl whitespace-nowrap transition-all text-xs sm:text-sm touch-target ${
               selectedRegion === region.id
                 ? 'bg-green-600 text-white'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
             }`}
           >
-            <region.icon className="w-4 h-4" />
+            <region.icon className="w-3 h-3 sm:w-4 sm:h-4" />
             {region.name}
           </button>
         ))}
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4 sm:mb-6">
         <motion.button
           onClick={() => selectServer(fastestServer)}
-          className="glass rounded-2xl p-4 text-left card-hover"
+          className="glass rounded-xl sm:rounded-2xl p-3 sm:p-4 text-left card-hover touch-target"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-yellow-500/20 rounded-xl flex items-center justify-center">
-              <Zap className="w-5 h-5 text-yellow-400" />
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+              <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
             </div>
-            <div>
-              <p className="text-white font-medium">{t('fastest')}</p>
-              <p className="text-slate-400 text-xs">{fastestServer.city}</p>
+            <div className="min-w-0">
+              <p className="text-white font-medium text-xs sm:text-sm truncate">{t('fastest')}</p>
+              <p className="text-slate-400 text-xs truncate">{fastestServer.city}</p>
             </div>
           </div>
-          <p className="text-green-400 text-sm">{fastestServer.ping}ms</p>
+          <p className="text-green-400 text-xs sm:text-sm">{fastestServer.ping}ms</p>
         </motion.button>
 
         <motion.button
           onClick={() => selectServer(servers.find(s => s.region === 'africa'))}
-          className="glass rounded-2xl p-4 text-left card-hover"
+          className="glass rounded-xl sm:rounded-2xl p-3 sm:p-4 text-left card-hover touch-target"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
-              <Star className="w-5 h-5 text-green-400" />
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/20 rounded-lg sm:rounded-xl flex items-center justify-center">
+              <Star className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
             </div>
-            <div>
-              <p className="text-white font-medium">{t('recommended')}</p>
-              <p className="text-slate-400 text-xs">{t('african_servers')}</p>
+            <div className="min-w-0">
+              <p className="text-white font-medium text-xs sm:text-sm truncate">{t('recommended')}</p>
+              <p className="text-slate-400 text-xs truncate">{t('african_servers')}</p>
             </div>
           </div>
-          <p className="text-yellow-400 text-sm">Priority</p>
+          <p className="text-yellow-400 text-xs sm:text-sm">Priority</p>
         </motion.button>
       </div>
 
-      {/* Server list */}
-      <div className="space-y-3">
+      {/* Server list - Desktop shows grid, mobile shows list */}
+      <div className="space-y-2 sm:space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
         {filteredServers.map((server, index) => (
           <motion.button
             key={server.id}
             onClick={() => selectServer(server)}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className={`w-full glass rounded-2xl p-4 flex items-center gap-4 text-left transition-all card-hover ${
+            transition={{ delay: index * 0.03 }}
+            className={`w-full glass rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4 text-left transition-all card-hover touch-target ${
               selectedServer.id === server.id ? 'ring-2 ring-green-500' : ''
             }`}
           >
             {/* Flag */}
-            <div className="text-3xl">{server.flag}</div>
+            <div className="text-2xl sm:text-3xl flex-shrink-0">{server.flag}</div>
 
             {/* Info */}
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-white font-medium">{server.country}</p>
+                <p className="text-white font-medium text-sm sm:text-base truncate">{server.country}</p>
                 {server.region === 'africa' && (
-                  <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-green-500/20 text-green-400 px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0">
                     Africa
                   </span>
                 )}
               </div>
-              <p className="text-slate-400 text-sm">{server.city}</p>
+              <p className="text-slate-400 text-xs sm:text-sm truncate">{server.city}</p>
             </div>
 
             {/* Stats */}
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
               <div className="flex items-center gap-1 justify-end mb-1">
-                <Signal className={`w-4 h-4 ${getPingColor(server.ping)}`} />
-                <span className={`font-medium ${getPingColor(server.ping)}`}>{server.ping}ms</span>
+                <Signal className={`w-3 h-3 sm:w-4 sm:h-4 ${getPingColor(server.ping)}`} />
+                <span className={`font-medium text-xs sm:text-sm ${getPingColor(server.ping)}`}>{server.ping}ms</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <div className="w-10 sm:w-16 h-1.5 sm:h-2 bg-slate-700 rounded-full overflow-hidden">
                   <div 
                     className={`h-full ${getLoadColor(server.load)} transition-all`}
                     style={{ width: `${server.load}%` }}
@@ -165,7 +165,7 @@ export default function Servers() {
 
             {/* Selected indicator */}
             {selectedServer.id === server.id && (
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+              <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-500 rounded-full animate-pulse flex-shrink-0" />
             )}
           </motion.button>
         ))}

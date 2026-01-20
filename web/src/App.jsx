@@ -42,15 +42,18 @@ function App() {
           <StealthProvider>
             <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
               <PanicOverlay />
-              <div className="pb-20">
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/servers" element={<Servers />} />
-                  <Route path="/statistics" element={<Statistics />} />
-                  <Route path="/settings" element={<Settings />} />
-                </Routes>
-              </div>
               <Navigation />
+              {/* Main content area - offset for sidebar on desktop */}
+              <div className="lg:ml-64 pb-20 lg:pb-0">
+                <div className="max-w-6xl mx-auto">
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/servers" element={<Servers />} />
+                    <Route path="/statistics" element={<Statistics />} />
+                    <Route path="/settings" element={<Settings />} />
+                  </Routes>
+                </div>
+              </div>
             </div>
           </StealthProvider>
         </VpnProvider>

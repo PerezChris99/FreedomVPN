@@ -100,3 +100,132 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
 }
+
+/* ================================
+   MOBILE-FIRST RESPONSIVE DESIGN
+   ================================ */
+
+/* Base: Mobile (< 640px) */
+.mobile-container {
+  padding: 0.75rem;
+  max-width: 100%;
+}
+
+/* Small phones */
+@media (max-width: 320px) {
+  .connect-button {
+    width: 120px !important;
+    height: 120px !important;
+  }
+  
+  .connect-button svg {
+    width: 48px !important;
+    height: 48px !important;
+  }
+  
+  .mobile-text-sm {
+    font-size: 0.75rem !important;
+  }
+  
+  .mobile-p-2 {
+    padding: 0.5rem !important;
+  }
+}
+
+/* Standard mobile (321px - 480px) */
+@media (min-width: 321px) and (max-width: 480px) {
+  .connect-button {
+    width: 140px !important;
+    height: 140px !important;
+  }
+}
+
+/* Large phones / Small tablets (481px - 640px) */
+@media (min-width: 481px) and (max-width: 640px) {
+  .mobile-container {
+    padding: 1rem;
+  }
+}
+
+/* Tablets (641px - 768px) */
+@media (min-width: 641px) and (max-width: 768px) {
+  .mobile-container {
+    padding: 1.5rem;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+}
+
+/* Small laptops (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .mobile-container {
+    padding: 2rem;
+    max-width: 768px;
+    margin: 0 auto;
+  }
+}
+
+/* Desktops (1025px+) */
+@media (min-width: 1025px) {
+  .mobile-container {
+    padding: 2rem;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+}
+
+/* Safe area for notched phones */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-area-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Touch-friendly buttons */
+@media (hover: none) and (pointer: coarse) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .connect-button:active {
+    transform: scale(0.92);
+  }
+}
+
+/* Landscape mode adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .connect-button {
+    width: 100px !important;
+    height: 100px !important;
+  }
+  
+  .connect-button svg {
+    width: 40px !important;
+    height: 40px !important;
+  }
+}
+
+/* Dark mode preference */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .ripple-effect,
+  .glow-effect {
+    animation: none;
+  }
+  
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

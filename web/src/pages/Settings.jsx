@@ -44,23 +44,23 @@ export default function Settings() {
   const [showDisguise, setShowDisguise] = useState(false)
 
   const SettingToggle = ({ label, description, icon: Icon, enabled, onChange, color = 'green' }) => (
-    <div className="glass rounded-2xl p-4 flex items-center gap-4">
-      <div className={`w-10 h-10 bg-${color}-500/20 rounded-xl flex items-center justify-center`}>
-        <Icon className={`w-5 h-5 text-${color}-400`} />
+    <div className="glass rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+      <div className={`w-8 h-8 sm:w-10 sm:h-10 bg-${color}-500/20 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0`}>
+        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 text-${color}-400`} />
       </div>
-      <div className="flex-1">
-        <p className="text-white font-medium">{label}</p>
-        {description && <p className="text-slate-400 text-sm">{description}</p>}
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-medium text-sm sm:text-base">{label}</p>
+        {description && <p className="text-slate-400 text-xs sm:text-sm truncate">{description}</p>}
       </div>
       <button
         onClick={onChange}
-        className={`w-14 h-8 rounded-full transition-all ${
+        className={`w-12 h-7 sm:w-14 sm:h-8 rounded-full transition-all flex-shrink-0 ${
           enabled ? 'bg-green-500' : 'bg-slate-600'
         }`}
       >
         <motion.div
-          className="w-6 h-6 bg-white rounded-full shadow-md"
-          animate={{ x: enabled ? 26 : 2 }}
+          className="w-5 h-5 sm:w-6 sm:h-6 bg-white rounded-full shadow-md"
+          animate={{ x: enabled ? (window.innerWidth < 640 ? 22 : 26) : 2 }}
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
         />
       </button>
@@ -70,34 +70,36 @@ export default function Settings() {
   const SettingButton = ({ label, description, icon: Icon, value, onClick, color = 'blue' }) => (
     <button
       onClick={onClick}
-      className="w-full glass rounded-2xl p-4 flex items-center gap-4 text-left hover:bg-white/5 transition-colors"
+      className="w-full glass rounded-xl sm:rounded-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4 text-left hover:bg-white/5 transition-colors touch-target"
     >
-      <div className={`w-10 h-10 bg-${color}-500/20 rounded-xl flex items-center justify-center`}>
-        <Icon className={`w-5 h-5 text-${color}-400`} />
+      <div className={`w-8 h-8 sm:w-10 sm:h-10 bg-${color}-500/20 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0`}>
+        <Icon className={`w-4 h-4 sm:w-5 sm:h-5 text-${color}-400`} />
       </div>
-      <div className="flex-1">
-        <p className="text-white font-medium">{label}</p>
-        {description && <p className="text-slate-400 text-sm">{description}</p>}
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-medium text-sm sm:text-base">{label}</p>
+        {description && <p className="text-slate-400 text-xs sm:text-sm truncate">{description}</p>}
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-green-400 text-sm">{value}</span>
-        <ChevronRight className="w-5 h-5 text-slate-400" />
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <span className="text-green-400 text-xs sm:text-sm truncate max-w-20 sm:max-w-none">{value}</span>
+        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
       </div>
     </button>
   )
 
   return (
-    <div className="min-h-screen p-4 pt-8">
+    <div className="min-h-screen p-3 sm:p-4 lg:p-8 pt-6 sm:pt-8">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-1">{t('settings')}</h1>
-        <p className="text-slate-400 text-sm">Customize your VPN experience</p>
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1">{t('settings')}</h1>
+        <p className="text-slate-400 text-xs sm:text-sm">Customize your VPN experience</p>
       </div>
 
-      {/* Connection Settings */}
-      <div className="mb-6">
-        <h2 className="text-slate-400 text-sm font-medium mb-3 px-1">CONNECTION</h2>
-        <div className="space-y-3">
+      {/* Desktop grid layout */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6">
+        {/* Connection Settings */}
+        <div className="mb-4 sm:mb-6">
+          <h2 className="text-slate-400 text-xs sm:text-sm font-medium mb-2 sm:mb-3 px-1">CONNECTION</h2>
+          <div className="space-y-2 sm:space-y-3">
           <SettingButton
             icon={Globe}
             label={t('obfuscation')}
@@ -128,9 +130,9 @@ export default function Settings() {
       </div>
 
       {/* Security Settings */}
-      <div className="mb-6">
-        <h2 className="text-slate-400 text-sm font-medium mb-3 px-1">SECURITY</h2>
-        <div className="space-y-3">
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-slate-400 text-xs sm:text-sm font-medium mb-2 sm:mb-3 px-1">SECURITY</h2>
+        <div className="space-y-2 sm:space-y-3">
           <SettingToggle
             icon={stealthMode ? Eye : EyeOff}
             label={t('stealthMode')}
@@ -166,11 +168,12 @@ export default function Settings() {
           />
         </div>
       </div>
+      </div>
 
       {/* General Settings */}
-      <div className="mb-6">
-        <h2 className="text-slate-400 text-sm font-medium mb-3 px-1">GENERAL</h2>
-        <div className="space-y-3">
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-slate-400 text-xs sm:text-sm font-medium mb-2 sm:mb-3 px-1">GENERAL</h2>
+        <div className="space-y-2 sm:space-y-3">
           <SettingButton
             icon={Languages}
             label={t('language')}
@@ -192,9 +195,9 @@ export default function Settings() {
       </div>
 
       {/* About */}
-      <div className="glass rounded-2xl p-4 text-center">
-        <p className="text-white font-medium">FreedomVPN</p>
-        <p className="text-slate-400 text-sm">Version 1.0.0</p>
+      <div className="glass rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center">
+        <p className="text-white font-medium text-sm sm:text-base">FreedomVPN</p>
+        <p className="text-slate-400 text-xs sm:text-sm">Version 1.0.0</p>
         <p className="text-green-400 text-xs mt-2">Built for Uganda 🇺🇬</p>
       </div>
 
@@ -203,17 +206,17 @@ export default function Settings() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/80 flex items-end justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 flex items-center sm:items-end justify-center z-50 p-3 sm:p-4"
           onClick={() => setShowLanguages(false)}
         >
           <motion.div
-            initial={{ y: 300 }}
-            animate={{ y: 0 }}
-            className="bg-slate-800 rounded-3xl w-full max-w-md p-6"
+            initial={{ y: 300, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-md p-4 sm:p-6 max-h-[80vh] overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold text-white mb-4">Select Language</h3>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-4">Select Language</h3>
+            <div className="space-y-2 max-h-64 sm:max-h-96 overflow-y-auto">
               {availableLanguages.map(lang => (
                 <button
                   key={lang.code}
@@ -221,13 +224,13 @@ export default function Settings() {
                     changeLanguage(lang.code)
                     setShowLanguages(false)
                   }}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl transition-colors ${
+                  className={`w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl transition-colors touch-target ${
                     language === lang.code ? 'bg-green-500/20' : 'hover:bg-slate-700'
                   }`}
                 >
-                  <span className="text-2xl">{lang.flag}</span>
-                  <span className="text-white flex-1 text-left">{lang.name}</span>
-                  {language === lang.code && <Check className="w-5 h-5 text-green-400" />}
+                  <span className="text-xl sm:text-2xl">{lang.flag}</span>
+                  <span className="text-white flex-1 text-left text-sm sm:text-base">{lang.name}</span>
+                  {language === lang.code && <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />}
                 </button>
               ))}
             </div>
@@ -240,17 +243,17 @@ export default function Settings() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/80 flex items-end justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 flex items-center sm:items-end justify-center z-50 p-3 sm:p-4"
           onClick={() => setShowObfuscation(false)}
         >
           <motion.div
-            initial={{ y: 300 }}
-            animate={{ y: 0 }}
-            className="bg-slate-800 rounded-3xl w-full max-w-md p-6"
+            initial={{ y: 300, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-md p-4 sm:p-6 max-h-[80vh] overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold text-white mb-4">Obfuscation Protocol</h3>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-4">Obfuscation Protocol</h3>
+            <div className="space-y-2 max-h-64 sm:max-h-96 overflow-y-auto">
               {obfuscationProtocols.map(protocol => (
                 <button
                   key={protocol.id}
@@ -258,19 +261,19 @@ export default function Settings() {
                     setObfuscationProtocol(protocol)
                     setShowObfuscation(false)
                   }}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl transition-colors ${
+                  className={`w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl transition-colors touch-target ${
                     obfuscationProtocol.id === protocol.id ? 'bg-green-500/20' : 'hover:bg-slate-700'
                   }`}
                 >
                   <div className="flex-1 text-left">
-                    <p className="text-white font-medium">{protocol.name}</p>
-                    <p className="text-slate-400 text-sm">{protocol.description}</p>
+                    <p className="text-white font-medium text-sm sm:text-base">{protocol.name}</p>
+                    <p className="text-slate-400 text-xs sm:text-sm">{protocol.description}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-green-400 text-sm">{protocol.effectiveness}%</p>
-                    <p className="text-slate-500 text-xs">effectiveness</p>
+                    <p className="text-green-400 text-xs sm:text-sm">{protocol.effectiveness}%</p>
+                    <p className="text-slate-500 text-xs hidden sm:block">effectiveness</p>
                   </div>
-                  {obfuscationProtocol.id === protocol.id && <Check className="w-5 h-5 text-green-400" />}
+                  {obfuscationProtocol.id === protocol.id && <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />}
                 </button>
               ))}
             </div>
@@ -283,16 +286,16 @@ export default function Settings() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/80 flex items-end justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 flex items-center sm:items-end justify-center z-50 p-3 sm:p-4"
           onClick={() => setShowDisguise(false)}
         >
           <motion.div
-            initial={{ y: 300 }}
-            animate={{ y: 0 }}
-            className="bg-slate-800 rounded-3xl w-full max-w-md p-6"
+            initial={{ y: 300, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-slate-800 rounded-2xl sm:rounded-3xl w-full max-w-md p-4 sm:p-6 max-h-[80vh] overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold text-white mb-4">App Disguise</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-white mb-4">App Disguise</h3>
             <div className="space-y-2">
               {disguises.map(disguise => (
                 <button
@@ -301,13 +304,13 @@ export default function Settings() {
                     setDisguise(disguise.id)
                     setShowDisguise(false)
                   }}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl transition-colors ${
+                  className={`w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl transition-colors touch-target ${
                     appDisguise === disguise.id ? 'bg-green-500/20' : 'hover:bg-slate-700'
                   }`}
                 >
-                  <span className="text-2xl">{disguise.icon}</span>
-                  <span className="text-white flex-1 text-left">{disguise.name}</span>
-                  {appDisguise === disguise.id && <Check className="w-5 h-5 text-green-400" />}
+                  <span className="text-xl sm:text-2xl">{disguise.icon}</span>
+                  <span className="text-white flex-1 text-left text-sm sm:text-base">{disguise.name}</span>
+                  {appDisguise === disguise.id && <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />}
                 </button>
               ))}
             </div>
