@@ -1,4 +1,4 @@
-// FreedomVPN Extension Popup Script
+// FreedomVPN Extension Popup Script - Enhanced Anti-Censorship Version
 
 // Translations (matching Android and Web versions)
 const translations = {
@@ -20,7 +20,21 @@ const translations = {
     yourIP: "Your IP Address",
     timeConnected: "Time Connected",
     moneySaved: "Money Saved",
+    dataSaved: "Data Saved",
     copied: "Copied!",
+    connectBest: "Quick Connect (Best Server)",
+    latency: "Latency",
+    quality: "Quality",
+    excellent: "Excellent",
+    good: "Good",
+    fair: "Fair",
+    poor: "Poor",
+    critical: "Critical",
+    blocksEvaded: "Blocks Evaded",
+    reconnections: "Auto-Reconnects",
+    killSwitch: "Kill Switch",
+    leakProtection: "Leak Protection",
+    preferAfrican: "Prefer African Servers"
   },
   sw: {
     tagline: "Uhuru wa Kidijitali kwa Afrika",
@@ -35,6 +49,8 @@ const translations = {
     settings: "Mipangilio",
     language: "Lugha",
     moneySaved: "Pesa Zilizohifadhiwa",
+    dataSaved: "Data Iliyohifadhiwa",
+    connectBest: "Unganisha Haraka"
   },
   lg: {
     tagline: "Eddembe lya Digito mu Afrika",
@@ -64,12 +80,29 @@ let state = {
   currentServer: null,
   servers: {},
   settings: {},
-  startTime: null
+  startTime: null,
+  stats: {
+    bytesIn: 0,
+    bytesOut: 0,
+    dataSaved: 0,
+    moneySaved: 0,
+    blocksEvaded: 0,
+    reconnections: 0
+  },
+  health: {
+    latency: 0,
+    quality: 'unknown'
+  },
+  ip: {
+    real: null,
+    masked: null
+  }
 };
 
 let currentLanguage = 'en';
 let currentRegion = 'africa';
 let connectionTimer = null;
+let statsUpdateInterval = null;
 
 // DOM Elements
 const statusCard = document.getElementById('statusCard');
@@ -88,12 +121,13 @@ const settingsBtn = document.getElementById('settingsBtn');
 const settingsPanel = document.getElementById('settingsPanel');
 const backBtn = document.getElementById('backBtn');
 
-// Server regions
+// Server regions - updated with new server IDs
 const serverRegions = {
-  africa: ['ug', 'ke', 'za', 'ng', 'eg'],
-  europe: ['nl', 'de', 'gb', 'fr'],
-  americas: ['us', 'br'],
-  asia: ['sg', 'jp', 'ae']
+  africa: ['ke-nrb', 'rw-kgl', 'tz-dar', 'za-jhb', 'eg-cai', 'ng-los', 'gh-acc'],
+  europe: ['nl-ams', 'de-fra', 'gb-lon', 'fr-par', 'ch-zur'],
+  americas: ['us-nyc', 'us-lax', 'br-sao', 'ca-tor'],
+  asia: ['sg-sin', 'jp-tky', 'ae-dxb', 'in-mum'],
+  cdn: ['cdn-cloudflare', 'cdn-google', 'cdn-azure', 'cdn-amazon']
 };
 
 // Initialize
@@ -102,6 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   updateUI();
   fetchCurrentIP();
+  startStatsUpdater();
 });
 
 // Load state from background
@@ -110,12 +145,15 @@ async function loadState() {
     chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
       if (response) {
         state.servers = response.servers || {};
-        state.settings = response.settings || {};
         
         if (response.state) {
           state.isConnected = response.state.isConnected;
           state.currentServer = response.state.currentServer;
           state.startTime = response.state.startTime;
+          state.settings = response.state.settings || {};
+          state.stats = response.state.stats || state.stats;
+          state.health = response.state.health || state.health;
+          state.ip = response.state.ip || state.ip;
         }
         
         currentLanguage = state.settings.language || 'en';
@@ -125,10 +163,69 @@ async function loadState() {
   });
 }
 
+// Start real-time stats updater
+function startStatsUpdater() {
+  stopStatsUpdater();
+  statsUpdateInterval = setInterval(async () => {
+    if (state.isConnected) {
+      await updateStats();
+    }
+  }, 5000);
+}
+
+function stopStatsUpdater() {
+  if (statsUpdateInterval) {
+    clearInterval(statsUpdateInterval);
+    statsUpdateInterval = null;
+  }
+}
+
+// Update stats from background
+async function updateStats() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: 'getStats' }, (response) => {
+      if (response) {
+        state.stats = response.stats || state.stats;
+        state.health = response.health || state.health;
+        updateStatsDisplay();
+      }
+      resolve();
+    });
+  });
+}
+
+// Update stats display
+function updateStatsDisplay() {
+  // Update latency indicator
+  const latencyEl = document.getElementById('latencyValue');
+  const qualityEl = document.getElementById('qualityIndicator');
+  
+  if (latencyEl && state.health.latency) {
+    latencyEl.textContent = `${state.health.latency}ms`;
+  }
+  
+  if (qualityEl) {
+    qualityEl.className = `quality-indicator quality-${state.health.quality || 'unknown'}`;
+    qualityEl.textContent = t(state.health.quality || 'unknown');
+  }
+  
+  // Update blocks evaded
+  const blocksEl = document.getElementById('blocksEvaded');
+  if (blocksEl && state.stats.blocksEvaded > 0) {
+    blocksEl.textContent = `🛡️ ${state.stats.blocksEvaded} blocks evaded`;
+  }
+}
+
 // Setup event listeners
 function setupEventListeners() {
   // Connect button
   connectBtn.addEventListener('click', toggleConnection);
+  
+  // Quick connect (best server) - add button if exists
+  const quickConnectBtn = document.getElementById('quickConnectBtn');
+  if (quickConnectBtn) {
+    quickConnectBtn.addEventListener('click', quickConnect);
+  }
   
   // Settings
   settingsBtn.addEventListener('click', () => {
@@ -139,7 +236,7 @@ function setupEventListeners() {
     settingsPanel.classList.remove('active');
   });
   
-  // Server tabs
+  // Server tabs - add CDN tab
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -175,6 +272,84 @@ function setupEventListeners() {
     state.settings.autoConnect = e.target.checked;
     saveSettings();
   });
+  
+  // Enhanced settings - kill switch, leak protection, prefer African
+  const killSwitchToggle = document.getElementById('killSwitchToggle');
+  if (killSwitchToggle) {
+    killSwitchToggle.addEventListener('change', (e) => {
+      state.settings.killSwitch = e.target.checked;
+      saveSettings();
+    });
+  }
+  
+  const leakProtectionToggle = document.getElementById('leakProtectionToggle');
+  if (leakProtectionToggle) {
+    leakProtectionToggle.addEventListener('change', (e) => {
+      state.settings.leakProtection = e.target.checked;
+      saveSettings();
+    });
+  }
+  
+  const preferAfricanToggle = document.getElementById('preferAfricanToggle');
+  if (preferAfricanToggle) {
+    preferAfricanToggle.addEventListener('change', (e) => {
+      state.settings.preferAfrican = e.target.checked;
+      saveSettings();
+    });
+  }
+  
+  // Force failover button
+  const failoverBtn = document.getElementById('forceFailoverBtn');
+  if (failoverBtn) {
+    failoverBtn.addEventListener('click', forceFailover);
+  }
+}
+
+// Quick connect to best server
+async function quickConnect() {
+  if (state.isConnecting) return;
+  
+  state.isConnecting = true;
+  updateUI();
+  
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: 'connectBest' }, (response) => {
+      state.isConnecting = false;
+      
+      if (response?.success) {
+        state.isConnected = true;
+        state.currentServer = response.state?.currentServer;
+        state.startTime = Date.now();
+        startConnectionTimer();
+        showToast('Connected to best server! 🚀');
+      } else {
+        showToast('Connection failed. Trying fallback...');
+      }
+      
+      updateUI();
+      setTimeout(fetchCurrentIP, 2000);
+      resolve(response);
+    });
+  });
+}
+
+// Force failover to another server
+async function forceFailover() {
+  if (!state.isConnected) return;
+  
+  showToast('Switching to another server...');
+  
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: 'forceFailover' }, (response) => {
+      if (response?.success) {
+        state.currentServer = response.newServer;
+        showToast(`Switched to ${response.newServer?.city}! 🔄`);
+      }
+      updateUI();
+      setTimeout(fetchCurrentIP, 2000);
+      resolve(response);
+    });
+  });
 }
 
 // Toggle connection
@@ -188,9 +363,9 @@ async function toggleConnection() {
   }
 }
 
-// Connect to VPN
+// Connect to VPN with enhanced error handling
 async function connect() {
-  const selectedServerId = state.settings.selectedServer || 'ug';
+  const selectedServerId = state.settings.selectedServer || 'ke-nrb';
   
   state.isConnecting = true;
   updateUI();
@@ -206,7 +381,11 @@ async function connect() {
         state.isConnected = true;
         state.currentServer = response.state?.currentServer;
         state.startTime = Date.now();
+        state.ip.masked = response.ip;
         startConnectionTimer();
+        showToast(`Connected to ${state.currentServer?.city}! 🛡️`);
+      } else {
+        showToast('Connection failed. Try another server.');
       }
       
       updateUI();
@@ -320,7 +499,7 @@ function updateUI() {
   applyTranslations();
 }
 
-// Render server list
+// Render server list with health indicators and obfuscation info
 function renderServers() {
   const serverIds = serverRegions[currentRegion] || [];
   
@@ -329,15 +508,32 @@ function renderServers() {
     if (!server) return '';
     
     const isSelected = state.settings.selectedServer === id;
+    const isConnected = state.isConnected && state.currentServer?.id === id;
+    
+    // Show obfuscation methods
+    const obfuscationBadge = server.obfuscation?.includes('domain-front') 
+      ? '<span class="obfuscation-badge">CDN</span>'
+      : server.obfuscation?.includes('websocket')
+        ? '<span class="obfuscation-badge">WS</span>'
+        : '<span class="obfuscation-badge">TLS</span>';
+    
+    // African server indicator
+    const africanBadge = server.isAfrican 
+      ? '<span class="african-badge">🌍 African</span>' 
+      : '';
     
     return `
-      <div class="server-item ${isSelected ? 'selected' : ''}" data-server="${id}">
-        <span class="server-flag">${server.flag}</span>
+      <div class="server-item ${isSelected ? 'selected' : ''} ${isConnected ? 'connected' : ''}" data-server="${id}">
+        <span class="server-flag">${server.flag || '🌐'}</span>
         <div class="server-info">
           <span class="server-name">${server.country}</span>
-          <span class="server-city">${server.city}</span>
+          <span class="server-city">${server.city} ${africanBadge}</span>
+          ${server.description ? `<span class="server-desc">${server.description}</span>` : ''}
         </div>
-        <span class="server-ping">${Math.floor(Math.random() * 50) + 20}ms</span>
+        <div class="server-meta">
+          ${obfuscationBadge}
+          <span class="server-ping">${isConnected ? state.health.latency + 'ms' : '~'}</span>
+        </div>
       </div>
     `;
   }).join('');

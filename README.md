@@ -1,17 +1,48 @@
-# 🌍 FreedomVPN - Break Free From Internet Censorship
+# 🌍 FreedomVPN - Anti-Censorship Edition v2.0
 
 <p align="center">
   <img src="docs/assets/logo.png" alt="FreedomVPN Logo" width="200"/>
 </p>
 
 <p align="center">
-  <strong>Fast • Free • Untraceable • One-Tap Connection</strong>
+  <strong>Unblockable • Fast • Secure • Untraceable</strong>
 </p>
 
 <p align="center">
-  A cross-platform VPN designed for people living under internet censorship.<br/>
-  Built for Uganda 🇺🇬 and anywhere freedom is restricted.
+  A cross-platform VPN designed to defeat internet censorship in Uganda and Africa.<br/>
+  Built with domain fronting, TLS obfuscation, and automatic failover.
 </p>
+
+---
+
+## 🚀 What's New in v2.0 (Anti-Censorship Edition)
+
+### 🛡️ Advanced Anti-Censorship
+- **Domain Fronting** through Cloudflare, Google, Azure, Amazon CDN
+- **TLS Camouflage** - VPN traffic looks like normal HTTPS
+- **WebSocket Tunneling** - Alternative transport layer
+- **Traffic Morphing** - Defeats Deep Packet Inspection (DPI)
+- **Automatic Failover** - Instantly switches servers when blocked
+
+### 🔒 Enhanced Privacy
+- **WebRTC Leak Protection** - Blocks IP leaks via browsers
+- **DNS-over-HTTPS** - Encrypted DNS (Cloudflare, Google, Quad9)
+- **IPv6 Protection** - Prevents IPv6 leaks
+- **Kill Switch** - Blocks all traffic if VPN disconnects
+
+### 📊 Real-Time Statistics
+- Live bandwidth monitoring
+- Latency and connection quality
+- Data saved by compression
+- Money saved in UGX (Ugandan Shillings)
+- Blocks evaded counter
+
+### 🌍 24 Global Servers
+- **7 African** (Kenya, Rwanda, Tanzania, South Africa, Egypt, Nigeria, Ghana)
+- **5 European** (Netherlands, Germany, UK, France, Switzerland)
+- **4 Americas** (US NYC/LAX, Brazil, Canada)
+- **4 Asia** (Singapore, Japan, UAE, India)
+- **4 CDN Fallback** (Nearly unblockable)
 
 ---
 
@@ -34,6 +65,7 @@ FreedomVPN exists to provide **free, fast, and untraceable** internet access to 
 | Phase 5 | Performance Optimization | ✅ Complete | 100% |
 | Phase 6 | Security Hardening | ✅ Complete | 100% |
 | Phase 7 | Distribution & Polish | ✅ Complete | 100% |
+| **Phase 8** | **Anti-Censorship Hardening (UCC Uganda)** | **✅ Complete** | **100%** |
 
 ---
 

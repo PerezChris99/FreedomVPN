@@ -604,3 +604,173 @@ input:checked + .slider:before {
     transform: translateX(-50%) translateY(0);
   }
 }
+
+/* ============= ENHANCED ANTI-CENSORSHIP STYLES ============= */
+
+/* Quick Connect Button */
+.quick-connect-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.quick-connect-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+}
+
+/* Force Failover Button */
+.force-failover-btn {
+  width: 100%;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: all 0.2s;
+}
+
+.force-failover-btn:hover {
+  background: var(--primary);
+}
+
+/* Obfuscation Badge */
+.obfuscation-badge {
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* African Server Badge */
+.african-badge {
+  font-size: 10px;
+  color: var(--primary-light);
+}
+
+/* Server Item Enhanced */
+.server-item.connected {
+  border: 2px solid var(--primary);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.server-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.server-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  display: block;
+}
+
+/* Quality Indicators */
+.quality-indicator {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.quality-excellent {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.quality-good {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.quality-fair {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.quality-poor {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.quality-critical {
+  background: rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Protection Info */
+.protection-info {
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--primary-light);
+}
+
+/* Enhanced Stats Grid */
+.stats-card {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.stats-card .stat {
+  flex-direction: column;
+  text-align: center;
+  padding: 12px 8px;
+}
+
+/* About Section Enhanced */
+.about-features {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* CDN Tab */
+.server-tabs .tab[data-region="cdn"] {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+}
+
+/* Server List Scrollable */
+.server-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Connection Animation */
+.status-card.connected .connect-btn {
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+}
+
+/* Protected IP Card Glow */
+.ip-card.protected {
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+}
+

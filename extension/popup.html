@@ -61,7 +61,7 @@
     <div class="server-card" id="serverCard">
       <div class="server-header">
         <span data-i18n="selectServer">Select Server</span>
-        <span class="server-count" id="serverCount">14 servers</span>
+        <span class="server-count" id="serverCount">24 servers</span>
       </div>
       
       <div class="server-tabs">
@@ -69,14 +69,20 @@
         <button class="tab" data-region="europe">🇪🇺 Europe</button>
         <button class="tab" data-region="americas">🌎 Americas</button>
         <button class="tab" data-region="asia">🌏 Asia</button>
+        <button class="tab" data-region="cdn">☁️ CDN</button>
       </div>
       
       <div class="server-list" id="serverList">
         <!-- Servers populated by JavaScript -->
       </div>
+      
+      <!-- Quick Connect Button -->
+      <button class="quick-connect-btn" id="quickConnectBtn">
+        <span>⚡</span> Quick Connect (Best Server)
+      </button>
     </div>
 
-    <!-- Quick Stats -->
+    <!-- Enhanced Stats -->
     <div class="stats-card" id="statsCard">
       <div class="stat">
         <span class="stat-icon">⏱️</span>
@@ -92,6 +98,25 @@
           <span class="stat-label" data-i18n="moneySaved">Money Saved</span>
         </div>
       </div>
+      <div class="stat">
+        <span class="stat-icon">📶</span>
+        <div class="stat-info">
+          <span class="stat-value" id="latencyValue">--</span>
+          <span class="stat-label" data-i18n="latency">Latency</span>
+        </div>
+      </div>
+      <div class="stat">
+        <span class="stat-icon">🛡️</span>
+        <div class="stat-info">
+          <span class="stat-value quality-indicator" id="qualityIndicator">--</span>
+          <span class="stat-label" data-i18n="quality">Quality</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Protection Info -->
+    <div class="protection-info" id="protectionInfo">
+      <span id="blocksEvaded"></span>
     </div>
 
     <!-- Settings Panel (hidden by default) -->
@@ -151,11 +176,50 @@
             <span class="slider"></span>
           </label>
         </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🚨</span>
+            <span class="setting-label" data-i18n="killSwitch">Kill Switch</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="killSwitchToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🔒</span>
+            <span class="setting-label" data-i18n="leakProtection">Leak Protection</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="leakProtectionToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🌍</span>
+            <span class="setting-label" data-i18n="preferAfrican">Prefer African Servers</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="preferAfricanToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <!-- Force Failover -->
+        <button class="force-failover-btn" id="forceFailoverBtn">
+          🔄 Switch Server (Force Failover)
+        </button>
       </div>
       
       <div class="about-section">
-        <p>FreedomVPN v1.0.0</p>
-        <p class="about-tagline">Built for Uganda 🇺🇬</p>
+        <p>FreedomVPN v2.0.0 - Anti-Censorship Edition</p>
+        <p class="about-tagline">Built for Uganda 🇺🇬 & Africa 🌍</p>
+        <p class="about-features">24 Servers • TLS Obfuscation • CDN Fallback • WebRTC Protection</p>
       </div>
     </div>
   </div>
