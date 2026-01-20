@@ -545,6 +545,24 @@ input:checked + .slider:before {
   margin-top: 4px;
 }
 
+.developer-credit {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-secondary) !important;
+}
+
+.developer-credit a {
+  color: var(--primary-light);
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.developer-credit a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
