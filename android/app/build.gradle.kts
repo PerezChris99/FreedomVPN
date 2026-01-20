@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.kapt")
+    id("org.jetbrains.kotlin.plugin.parcelize")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.dagger.hilt.android")
 }
 
@@ -34,6 +36,12 @@ android {
         }
         debug {
             isDebuggable = true
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
@@ -68,6 +76,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
     implementation("androidx.activity:activity-compose:1.8.1")
     
+    // Security - Encrypted SharedPreferences
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    
+    // Location Services
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+    
     // Jetpack Compose
     implementation(platform("androidx.compose:compose-bom:2023.10.01"))
     implementation("androidx.compose.ui:ui")
@@ -75,6 +89,10 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.foundation:foundation")
+    
+    // Accompanist for System UI
+    implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
     
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.5")
@@ -96,6 +114,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    
+    // Serialization
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     
     // CSV Parsing for VPN Gate
     implementation("com.opencsv:opencsv:5.8")

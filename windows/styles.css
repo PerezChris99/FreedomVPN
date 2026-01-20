@@ -107,27 +107,40 @@ body {
 
 .titlebar-controls {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   -webkit-app-region: no-drag;
 }
 
 .control-btn {
-  width: 36px;
-  height: 28px;
+  width: 14px;
+  height: 14px;
   border: none;
-  background: transparent;
-  color: var(--text-secondary);
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 12px;
-  border-radius: 4px;
+  font-size: 0;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.control-btn.close {
+  background: #ff5f57;
+}
+
+.control-btn.minimize {
+  background: #febc2e;
+}
+
+.control-btn.maximize {
+  background: #28c840;
 }
 
 .control-btn:hover {
-  background: var(--bg-hover);
+  transform: scale(1.1);
+  opacity: 0.9;
 }
 
 .control-btn.close:hover {
-  background: var(--danger);
+  background: #ff5f57;
   color: white;
 }
 
@@ -306,11 +319,34 @@ body {
   align-items: center;
   justify-content: center;
   transition: all 0.3s;
+  cursor: pointer;
+}
+
+.connection-ring:hover {
+  border-color: var(--primary);
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
 }
 
 .connection-ring.connected {
   border-color: var(--primary);
   box-shadow: 0 0 30px rgba(34, 197, 94, 0.3);
+}
+
+.connection-ring.connecting {
+  border-color: var(--warning);
+  animation: pulse-ring 1.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { 
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    transform: scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.5);
+    transform: scale(1.02);
+  }
 }
 
 .connection-inner {
@@ -510,6 +546,25 @@ body {
   border-color: var(--primary);
 }
 
+.server-item:active {
+  transform: scale(0.98);
+}
+
+.server-item.connecting {
+  border-color: var(--warning);
+  animation: pulse-border 1s infinite;
+}
+
+.server-item.connected {
+  border-color: var(--primary);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: var(--warning); }
+  50% { border-color: transparent; }
+}
+
 .server-flag {
   font-size: 20px;
 }
@@ -645,6 +700,18 @@ body {
   border-top: 1px solid var(--border);
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.status-bar .dev-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.status-bar .dev-link:hover {
+  color: var(--primary-light);
+  text-decoration: underline;
 }
 
 .spacer {

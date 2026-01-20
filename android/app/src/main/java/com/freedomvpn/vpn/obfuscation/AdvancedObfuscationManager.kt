@@ -296,7 +296,7 @@ class AdvancedObfuscationManager @Inject constructor() {
      */
     suspend fun shapeTraffic(data: ByteArray): ByteArray {
         // Add small random delay (0-50ms) to break timing patterns
-        delay(random.nextLong(50))
+        delay((random.nextInt(50)).toLong())
         
         // Sometimes split into smaller packets
         if (data.size > 500 && random.nextBoolean()) {
@@ -434,8 +434,10 @@ class AdvancedObfuscationManager @Inject constructor() {
     // ==================== UTILITIES ====================
     
     private val defaultXorKey = byteArrayOf(
-        0x5A, 0x3C, 0x7E, 0x1F, 0x9B, 0x2D, 0x4A, 0x6C,
-        0x8E, 0x0F, 0xA1, 0xB3, 0xC5, 0xD7, 0xE9, 0xFB.toByte()
+        0x5A.toByte(), 0x3C.toByte(), 0x7E.toByte(), 0x1F.toByte(), 
+        0x9B.toByte(), 0x2D.toByte(), 0x4A.toByte(), 0x6C.toByte(),
+        0x8E.toByte(), 0x0F.toByte(), 0xA1.toByte(), 0xB3.toByte(), 
+        0xC5.toByte(), 0xD7.toByte(), 0xE9.toByte(), 0xFB.toByte()
     )
 
     private fun xorEncrypt(data: ByteArray, key: ByteArray): ByteArray {

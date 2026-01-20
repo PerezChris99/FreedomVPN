@@ -12,11 +12,157 @@ const fetch = require('node-fetch');
 // System-wide tunnel manager for FULL anonymity
 const { SystemWideTunnel, DNSLeakProtection, IPv6LeakProtection } = require('./system-tunnel');
 const { MultiHopEngine, MultiHopPresets } = require('../shared/multihop/MultiHopEngine');
+const { IPDetectionService } = require('./ip-detection');
+
+// Initialize IP Detection Service
+const ipDetection = new IPDetectionService();
 
 // Initialize system-wide protection modules
 const systemTunnel = new SystemWideTunnel();
 const dnsProtection = new DNSLeakProtection();
 const ipv6Protection = new IPv6LeakProtection();
+
+// ============================================================
+// VPNGATE REAL SERVER SERVICE - Fetch live servers
+// ============================================================
+const VPNGATE_API = 'https://www.vpngate.net/api/iphone/';
+
+const VPNGateService = {
+  servers: [],
+  lastFetch: null,
+  cacheTimeout: 5 * 60 * 1000, // 5 minutes
+
+  async fetchRealServers(forceRefresh = false) {
+    if (!forceRefresh && this.servers.length > 0 && this.lastFetch) {
+      if (Date.now() - this.lastFetch < this.cacheTimeout) {
+        return this.servers;
+      }
+    }
+
+    try {
+      console.log('[VPNGate] Fetching real servers...');
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      
+      const response = await fetch(VPNGATE_API, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        console.warn('[VPNGate] API not available');
+        return [];
+      }
+
+      const csvText = await response.text();
+      this.servers = this.parseCSV(csvText);
+      this.lastFetch = Date.now();
+      
+      console.log(`[VPNGate] Fetched ${this.servers.length} real servers`);
+      return this.servers;
+    } catch (e) {
+      console.warn('[VPNGate] Fetch failed:', e.message);
+      return [];
+    }
+  },
+
+  parseCSV(csvText) {
+    const servers = [];
+    const lines = csvText.split('\n');
+    
+    for (let i = 2; i < lines.length - 1; i++) {
+      const line = lines[i].trim();
+      if (!line || line.startsWith('*')) continue;
+      
+      const cols = line.split(',');
+      if (cols.length < 15) continue;
+      
+      try {
+        const countryCode = cols[6]?.toUpperCase() || 'XX';
+        
+        servers.push({
+          id: `vpngate-${cols[0]}-${i}`,
+          host: cols[1],
+          port: 443,
+          country: cols[5] || 'Unknown',
+          city: '',
+          flag: this.getFlag(countryCode),
+          countryCode: countryCode,
+          ping: parseInt(cols[3]) || 0,
+          speed: parseInt(cols[4]) || 0,
+          speedMbps: (parseInt(cols[4]) || 0) / 1000000,
+          numSessions: parseInt(cols[7]) || 0,
+          operator: cols[12] || '',
+          openVpnConfig: cols[14] ? Buffer.from(cols[14], 'base64').toString('utf-8') : null,
+          obfuscation: ['tls', 'https'],
+          priority: 2,
+          isReal: true,
+          isAfrican: this.isAfrican(countryCode)
+        });
+      } catch (e) {}
+    }
+
+    return servers
+      .filter(s => s.host && s.ping > 0 && s.ping < 1000)
+      .sort((a, b) => a.ping - b.ping);
+  },
+
+  getFlag(countryCode) {
+    if (!countryCode || countryCode.length !== 2) return '🌍';
+    const codePoints = countryCode.toUpperCase().split('').map(
+      char => 127397 + char.charCodeAt(0)
+    );
+    return String.fromCodePoint(...codePoints);
+  },
+
+  isAfrican(countryCode) {
+    const africanCodes = ['UG', 'KE', 'TZ', 'RW', 'ZA', 'EG', 'NG', 'GH', 'ET', 'MA'];
+    return africanCodes.includes(countryCode);
+  }
+};
+
+// ============================================================
+// GEOLOCATION SERVICE - IP-based for Electron
+// ============================================================
+const GeolocationService = {
+  async getLocation() {
+    const apis = [
+      { url: 'https://ipwho.is/', parse: (d) => ({ lat: d.latitude, lon: d.longitude, city: d.city, country: d.country, countryCode: d.country_code }) },
+      { url: 'https://ipapi.co/json/', parse: (d) => ({ lat: d.latitude, lon: d.longitude, city: d.city, country: d.country_name, countryCode: d.country_code }) },
+    ];
+
+    for (const api of apis) {
+      try {
+        const response = await fetch(api.url);
+        if (response.ok) {
+          const data = await response.json();
+          return api.parse(data);
+        }
+      } catch (e) {}
+    }
+    return null;
+  },
+
+  distanceBetween(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  },
+
+  getServerCoords(countryCode) {
+    const coords = {
+      'UG': [0.3476, 32.5825], 'KE': [-1.2921, 36.8219], 'TZ': [-6.7924, 39.2083],
+      'RW': [-1.9403, 29.8739], 'ZA': [-26.2041, 28.0473], 'EG': [30.0444, 31.2357],
+      'NG': [6.5244, 3.3792], 'NL': [52.3676, 4.9041], 'DE': [50.1109, 8.6821],
+      'GB': [51.5074, -0.1278], 'US': [40.7128, -74.0060], 'JP': [35.6762, 139.6503],
+      'SG': [1.3521, 103.8198], 'KR': [37.5665, 126.9780], 'TW': [25.0330, 121.5654]
+    };
+    return coords[countryCode] || [0, 0];
+  }
+};
 
 // Initialize Multi-Hop Engine for server bouncing
 const multiHopEngine = new MultiHopEngine({
@@ -286,6 +432,10 @@ function createTray() {
 }
 
 function updateTrayMenu() {
+  if (!tray) {
+    return; // Tray not available, skip update
+  }
+  
   const contextMenu = Menu.buildFromTemplate([
     {
       label: state.isConnected 
@@ -324,24 +474,30 @@ function updateTrayMenu() {
   tray.setToolTip(`FreedomVPN - ${state.isConnected ? 'Protected' : 'Not Protected'}`);
 }
 
-// Fetch external IP
+// Fetch external IP using enhanced detection service
 async function fetchExternalIP() {
-  const services = [
-    'https://api.ipify.org?format=json',
-    'https://api.myip.com',
-    'https://ipinfo.io/json'
-  ];
-
-  for (const service of services) {
-    try {
-      const response = await fetch(service, { timeout: 5000 });
-      const data = await response.json();
-      return data.ip || data.origin || 'Unknown';
-    } catch (e) {
-      continue;
-    }
+  try {
+    const result = await ipDetection.detectIP(true);
+    return result.ip || 'Unknown';
+  } catch (e) {
+    console.error('[FreedomVPN] IP detection failed:', e.message);
+    return 'Unknown';
   }
-  return 'Unknown';
+}
+
+// Fetch detailed IP information
+async function fetchIPDetails() {
+  try {
+    const result = await ipDetection.detectIP(true);
+    return result;
+  } catch (e) {
+    return { ip: 'Unknown', error: e.message };
+  }
+}
+
+// Run privacy/leak check
+async function runPrivacyCheck(vpnIP, isConnected) {
+  return await ipDetection.runPrivacyCheck(vpnIP, isConnected);
 }
 
 // Measure latency to server
@@ -396,6 +552,15 @@ async function findBestServer() {
 
 // Connect to VPN server
 async function connect(serverId) {
+  // Auto-select a server if none provided
+  if (!serverId) {
+    const serverKeys = Object.keys(SERVERS);
+    if (serverKeys.length === 0) {
+      return { success: false, error: 'No servers available' };
+    }
+    serverId = serverKeys[0];
+  }
+  
   const server = SERVERS[serverId];
   if (!server) {
     return { success: false, error: 'Server not found' };
@@ -688,9 +853,100 @@ ipcMain.handle('get-real-ip', async () => {
   return state.ip.real;
 });
 
+// Enhanced IP detection with full details
+ipcMain.handle('get-ip-details', async () => {
+  const details = await fetchIPDetails();
+  state.ip.real = details.ip;
+  state.ip.details = details;
+  return details;
+});
+
+// Privacy and leak check
+ipcMain.handle('run-privacy-check', async () => {
+  const check = await runPrivacyCheck(state.ip.vpn, state.isConnected);
+  state.privacyCheck = check;
+  return check;
+});
+
+// Generate VPN IP for server
+ipcMain.handle('generate-vpn-ip', (event, serverId) => {
+  const server = Object.values(SERVERS).find(s => s.id === serverId) || state.currentServer;
+  return ipDetection.generateVpnIP(server);
+});
+
 ipcMain.handle('force-failover', async () => {
   await triggerFailover();
   return { success: true, server: state.currentServer };
+});
+
+// ============================================================
+// REAL SERVERS & LOCATION IPC HANDLERS
+// ============================================================
+
+// Fetch real VPN servers from VPNGate
+ipcMain.handle('fetch-real-servers', async () => {
+  try {
+    const realServers = await VPNGateService.fetchRealServers(true);
+    console.log(`[FreedomVPN] Fetched ${realServers.length} real VPNGate servers`);
+    return { success: true, servers: realServers };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+// Get all servers (static + real)
+ipcMain.handle('get-all-servers', async () => {
+  const staticServers = Object.entries(SERVERS).map(([id, s]) => ({ id, ...s }));
+  const realServers = await VPNGateService.fetchRealServers();
+  
+  return {
+    static: staticServers,
+    real: realServers,
+    all: [...staticServers, ...realServers]
+  };
+});
+
+// Get user location via IP
+ipcMain.handle('get-user-location', async () => {
+  try {
+    const location = await GeolocationService.getLocation();
+    console.log('[FreedomVPN] User location:', location);
+    return { success: true, location };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+// Find nearest servers to user location
+ipcMain.handle('get-nearest-servers', async (event, count = 5) => {
+  try {
+    const location = await GeolocationService.getLocation();
+    if (!location) return { success: false, error: 'Could not determine location' };
+
+    const allServers = [
+      ...Object.entries(SERVERS).map(([id, s]) => ({ id, ...s })),
+      ...VPNGateService.servers
+    ];
+
+    const serversWithDistance = allServers.map(server => {
+      const coords = GeolocationService.getServerCoords(server.countryCode || server.id?.toUpperCase().slice(0, 2));
+      const distance = GeolocationService.distanceBetween(
+        location.lat, location.lon,
+        coords[0], coords[1]
+      );
+      return { ...server, distance };
+    });
+
+    serversWithDistance.sort((a, b) => a.distance - b.distance);
+
+    return {
+      success: true,
+      location,
+      servers: serversWithDistance.slice(0, count)
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 });
 
 // Multi-Hop IPC Handlers
@@ -802,6 +1058,14 @@ async function toggleMultiHop(enabled) {
 
 ipcMain.handle('minimize', () => {
   mainWindow?.minimize();
+});
+
+ipcMain.handle('maximize', () => {
+  if (mainWindow?.isMaximized()) {
+    mainWindow?.unmaximize();
+  } else {
+    mainWindow?.maximize();
+  }
 });
 
 ipcMain.handle('close', () => {

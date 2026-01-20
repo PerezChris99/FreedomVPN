@@ -7,6 +7,7 @@
 let state = {
   isConnected: false,
   isConnecting: false,
+  connectingServerId: null,
   currentServer: null,
   realIP: null,
   vpnIP: null,
@@ -63,19 +64,32 @@ function setupNavigation() {
 function setupEventListeners() {
   // Connect button
   document.getElementById('connectBtn').addEventListener('click', async () => {
+    if (state.isConnecting) return; // Prevent double-click
+    
     if (state.isConnected) {
       await disconnect();
-    } else if (state.isConnecting) {
-      // Cancel
-      state.isConnecting = false;
-      updateConnectionUI();
     } else {
       await quickConnect();
     }
   });
   
+  // Shield icon - click to toggle connection
+  const connectionRing = document.getElementById('connectionRing');
+  if (connectionRing) {
+    connectionRing.style.cursor = 'pointer';
+    connectionRing.addEventListener('click', async () => {
+      if (state.isConnecting) return; // Prevent double-click
+      
+      if (state.isConnected) {
+        await disconnect();
+      } else {
+        await quickConnect();
+      }
+    });
+  }
+  
   // Refresh IP
-  document.getElementById('refreshIpBtn').addEventListener('click', fetchRealIP);
+  document.getElementById('refreshIpBtn')?.addEventListener('click', fetchRealIP);
   
   // Settings toggles
   setupSettingsListeners();
@@ -88,7 +102,8 @@ function setupIPCListeners() {
     return;
   }
   
-  window.freedomVPN.onConnectionState((event, data) => {
+  // Note: preload passes data directly, not (event, data)
+  window.freedomVPN.onConnectionState((data) => {
     state.isConnected = data.connected;
     state.currentServer = data.server;
     state.vpnIP = data.ip;
@@ -101,7 +116,7 @@ function setupIPCListeners() {
     updateConnectionUI();
   });
   
-  window.freedomVPN.onHealthUpdate?.((event, data) => {
+  window.freedomVPN.onHealthUpdate?.((data) => {
     if (data.latency) {
       document.getElementById('currentLatency').textContent = `${data.latency} ms`;
     }
@@ -133,7 +148,8 @@ async function quickConnect() {
   updateConnectionUI();
   
   try {
-    const result = await window.freedomVPN.connect();
+    // Use connectBest to automatically select the best server
+    const result = await window.freedomVPN.connectBest();
     
     if (result.success) {
       state.isConnected = true;
@@ -146,6 +162,7 @@ async function quickConnect() {
       showNotification('Connection Failed', result.error || 'Unknown error', 'error');
     }
   } catch (error) {
+    console.error('Quick connect error:', error);
     showNotification('Connection Failed', error.message, 'error');
   }
   
@@ -154,11 +171,16 @@ async function quickConnect() {
 }
 
 async function connectToServer(serverId) {
+  if (state.isConnecting) return; // Prevent double-click
+  
   state.isConnecting = true;
+  state.connectingServerId = serverId;
   updateConnectionUI();
+  updateServerListStyles();
   
   try {
-    const result = await window.freedomVPN.connectToServer(serverId);
+    // Use the connect method with the serverId
+    const result = await window.freedomVPN.connect(serverId);
     
     if (result.success) {
       state.isConnected = true;
@@ -166,29 +188,43 @@ async function connectToServer(serverId) {
       state.vpnIP = result.ip;
       state.startTime = Date.now();
       startConnectionTimer();
+      showNotification('Connected', `Protected via ${state.currentServer?.city || 'VPN'}`);
     } else {
       showNotification('Connection Failed', result.error, 'error');
     }
   } catch (error) {
+    console.error('Connect to server error:', error);
     showNotification('Connection Failed', error.message, 'error');
   }
   
   state.isConnecting = false;
+  state.connectingServerId = null;
   updateConnectionUI();
+  updateServerListStyles();
 }
 
 async function disconnect() {
+  if (state.isConnecting) return; // Prevent during connection
+  
+  state.isConnecting = true; // Show disconnecting state
+  updateConnectionUI();
+  
   try {
-    await window.freedomVPN.disconnect();
+    const result = await window.freedomVPN.disconnect();
     state.isConnected = false;
     state.currentServer = null;
     state.vpnIP = null;
+    state.connectingServerId = null;
     stopConnectionTimer();
     showNotification('Disconnected', 'Your connection is no longer protected');
   } catch (error) {
     console.error('Disconnect error:', error);
+    showNotification('Disconnect Failed', error.message, 'error');
   }
+  
+  state.isConnecting = false;
   updateConnectionUI();
+  updateServerListStyles();
 }
 
 // ============= UI UPDATES =============
@@ -199,12 +235,16 @@ function updateConnectionUI() {
   const connectionStatus = document.getElementById('connectionStatusText');
   const globalStatus = document.getElementById('globalStatus');
   
+  // Clear all states first
+  connectionRing.classList.remove('connected', 'connecting');
+  
   if (state.isConnecting) {
     connectBtn.innerHTML = '<span>⏳ Connecting...</span>';
     connectBtn.disabled = true;
-    connectionRing.classList.remove('connected');
+    connectionRing.classList.add('connecting');
     connectionStatus.textContent = 'Connecting...';
     connectionIcon.textContent = '⏳';
+    globalStatus.innerHTML = '<span class="status-dot" style="background: var(--warning);"></span><span>Connecting...</span>';
   } else if (state.isConnected) {
     connectBtn.innerHTML = '<span>⏹️ Disconnect</span>';
     connectBtn.classList.add('danger');
@@ -337,6 +377,22 @@ function renderServers() {
       });
     });
   }
+  
+  // Update server list styles when connection changes
+  updateServerListStyles();
+}
+
+// Update server list to highlight connected server
+function updateServerListStyles() {
+  document.querySelectorAll('.server-item').forEach(item => {
+    item.classList.remove('connected', 'connecting');
+    
+    if (state.isConnecting && item.dataset.id === state.connectingServerId) {
+      item.classList.add('connecting');
+    } else if (state.isConnected && state.currentServer?.id === item.dataset.id) {
+      item.classList.add('connected');
+    }
+  });
 }
 
 // ============= TIMER =============
