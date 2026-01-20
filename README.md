@@ -244,110 +244,6 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 <p align="center">
   🇺🇬 Stand with Uganda 🇺🇬
 </p>
-| 1.4 | Test connection to VPN Gate servers | ⏳ Pending |
-| 1.5 | Implement auto-reconnect on connection drop | ⏳ Pending |
-| 1.6 | Add connection statistics (speed, data used) | ⏳ Pending |
-
-**Deliverable:** Working VPN that can connect and route traffic
-
----
-
-### 📍 PHASE 2: Anti-Censorship Features
-**Goal:** Make the VPN work in heavily censored environments
-
-| Task | Description | Status |
-|------|-------------|--------|
-| 2.1 | **Traffic Obfuscation** - Disguise VPN traffic as normal HTTPS | ⏳ Pending |
-| 2.2 | **Domain Fronting** - Hide server destinations using CDN | ⏳ Pending |
-| 2.3 | **Shadowsocks Integration** - Alternative protocol for China/Iran-style blocks | ⏳ Pending |
-| 2.4 | **Bridge/Relay Servers** - Fallback when direct connection fails | ⏳ Pending |
-| 2.5 | **DNS-over-HTTPS** - Prevent DNS-based blocking | ⏳ Pending |
-| 2.6 | **Protocol Randomization** - Avoid fingerprinting | ⏳ Pending |
-
-**Deliverable:** VPN that works even when government tries to block it
-
----
-
-### 📍 PHASE 3: Speed & Performance Optimization
-**Goal:** Instant connection, fast browsing
-
-| Task | Description | Status |
-|------|-------------|--------|
-| 3.1 | **Server Pre-ping** - Test servers in background | ⏳ Pending |
-| 3.2 | **Smart Server Selection** - Auto-pick fastest server | ⏳ Pending |
-| 3.3 | **Connection Caching** - Remember best servers | ⏳ Pending |
-| 3.4 | **Split Tunneling** - Only route blocked sites through VPN | ⏳ Pending |
-| 3.5 | **UDP Optimization** - Faster packet handling | ⏳ Pending |
-| 3.6 | **Lazy Loading** - App starts instantly | ⏳ Pending |
-
-**Deliverable:** Sub-second connection, minimal speed loss
-
----
-
-### 📍 PHASE 4: Privacy & Untraceability
-**Goal:** Zero logs, zero traces, complete anonymity
-
-| Task | Description | Status |
-|------|-------------|--------|
-| 4.1 | **No-Log Architecture** - App stores nothing sensitive | ⏳ Pending |
-| 4.2 | **RAM-Only Operation** - No disk writes for sensitive data | ⏳ Pending |
-| 4.3 | **Kill Switch** - Block internet if VPN drops | ⏳ Pending |
-| 4.4 | **DNS Leak Protection** - Prevent identity leaks | ⏳ Pending |
-| 4.5 | **IPv6 Leak Protection** - Block IPv6 when on VPN | ⏳ Pending |
-| 4.6 | **App Disguise** - Make app look like calculator/notes app | ⏳ Pending |
-| 4.7 | **Panic Button** - Quick disconnect + clear all data | ⏳ Pending |
-
-**Deliverable:** Completely untraceable VPN usage
-
----
-
-### 📍 PHASE 5: Distribution & Installation
-**Goal:** Easy installation without Play Store
-
-| Task | Description | Status |
-|------|-------------|--------|
-| 5.1 | **Signed APK Build** - Release-ready Android app | ⏳ Pending |
-| 5.2 | **APK Size Optimization** - Small download (<15MB) | ⏳ Pending |
-| 5.3 | **GitHub Releases** - Download from GitHub | ⏳ Pending |
-| 5.4 | **Direct Download Website** - Simple landing page | ⏳ Pending |
-| 5.5 | **QR Code Sharing** - Share app via QR | ⏳ Pending |
-| 5.6 | **Bluetooth/WiFi Share** - Offline app sharing | ⏳ Pending |
-| 5.7 | **Windows Installer** - MSIX or standalone .exe | ⏳ Pending |
-| 5.8 | **Auto-Update System** - Check for updates in-app | ⏳ Pending |
-
-**Deliverable:** Users can download and install easily
-
----
-
-### 📍 PHASE 6: User Experience Polish
-**Goal:** Simple enough for anyone to use
-
-| Task | Description | Status |
-|------|-------------|--------|
-| 6.1 | **One-Tap Connect** - Single button to connect | ⏳ Pending |
-| 6.2 | **Status Widget** - Home screen connection status | ⏳ Pending |
-| 6.3 | **Quick Settings Tile** - Toggle from notification shade | ✅ Complete |
-| 6.4 | **Connection Notifications** - Know when protected | ⏳ Pending |
-| 6.5 | **Multi-Language Support** - Luganda, Swahili, English | ⏳ Pending |
-| 6.6 | **Offline Mode** - App works without internet to fetch servers | ⏳ Pending |
-| 6.7 | **Battery Optimization** - Minimal battery drain | ⏳ Pending |
-
-**Deliverable:** Beautiful, intuitive app anyone can use
-
----
-
-### 📍 PHASE 7: Server Infrastructure (Optional - For Maximum Reliability)
-**Goal:** Our own servers for guaranteed access
-
-| Task | Description | Status |
-|------|-------------|--------|
-| 7.1 | Deploy WireGuard servers in multiple countries | ⏳ Pending |
-| 7.2 | Set up load balancing | ⏳ Pending |
-| 7.3 | Implement server health monitoring | ⏳ Pending |
-| 7.4 | Create server rotation system | ⏳ Pending |
-| 7.5 | Set up donation system for server costs | ⏳ Pending |
-
-**Deliverable:** Dedicated fast servers (if funding available)
 
 ---
 
@@ -362,41 +258,35 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 │  └──────┬──────┘                                                │
 │         │                                                        │
 │         ▼                                                        │
-│  ┌─────────────────────────────────────────────┐                │
-│  │           PROTECTION LAYERS                  │                │
-│  │  ┌─────────────────────────────────────┐    │                │
-│  │  │ Layer 1: Kill Switch               │    │                │
-│  │  │ (Blocks internet if VPN drops)     │    │                │
-│  │  └─────────────────────────────────────┘    │                │
-│  │  ┌─────────────────────────────────────┐    │                │
-│  │  │ Layer 2: DNS Leak Protection       │    │                │
-│  │  │ (All DNS through encrypted tunnel) │    │                │
-│  │  └─────────────────────────────────────┘    │                │
-│  │  ┌─────────────────────────────────────┐    │                │
-│  │  │ Layer 3: Traffic Obfuscation       │    │                │
-│  │  │ (Looks like normal HTTPS traffic)  │    │                │
-│  │  └─────────────────────────────────────┘    │                │
-│  │  ┌─────────────────────────────────────┐    │                │
-│  │  │ Layer 4: WireGuard Encryption      │    │                │
-│  │  │ (Military-grade encryption)        │    │                │
-│  │  └─────────────────────────────────────┘    │                │
-│  └─────────────────────────────────────────────┘                │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                   PROTECTION LAYERS                          ││
+│  │  ┌─────────────────────────────────────────────────────────┐││
+│  │  │ Layer 1: Kill Switch (Blocks internet if VPN drops)    │││
+│  │  └─────────────────────────────────────────────────────────┘││
+│  │  ┌─────────────────────────────────────────────────────────┐││
+│  │  │ Layer 2: DNS-over-HTTPS (Encrypted DNS via Cloudflare) │││
+│  │  └─────────────────────────────────────────────────────────┘││
+│  │  ┌─────────────────────────────────────────────────────────┐││
+│  │  │ Layer 3: WebRTC/IPv6 Leak Protection (No IP leaks)     │││
+│  │  └─────────────────────────────────────────────────────────┘││
+│  │  ┌─────────────────────────────────────────────────────────┐││
+│  │  │ Layer 4: TLS Camouflage (Looks like normal HTTPS)      │││
+│  │  └─────────────────────────────────────────────────────────┘││
+│  │  ┌─────────────────────────────────────────────────────────┐││
+│  │  │ Layer 5: Domain Fronting (Routes via CDNs)             │││
+│  │  └─────────────────────────────────────────────────────────┘││
+│  │  ┌─────────────────────────────────────────────────────────┐││
+│  │  │ Layer 6: WireGuard Encryption (Military-grade)         │││
+│  │  └─────────────────────────────────────────────────────────┘││
+│  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
                               │
-                              ▼
-                    ┌─────────────────┐
-                    │   ENCRYPTED     │
-                    │    TUNNEL       │
-                    │  (Invisible to  │
-                    │   government)   │
-                    └────────┬────────┘
-                             │
-                             ▼
+                              ▼ (Invisible to government/ISP)
 ┌─────────────────────────────────────────────────────────────────┐
 │                     VPN SERVER (Outside Uganda)                  │
-│                     🇯🇵 🇩🇪 🇳🇱 🇸🇬 🇺🇸 🇬🇧                            │
-│                                                                  │
-│              Your real IP is hidden here                         │
+│              🇰🇪 🇷🇼 🇿🇦 🇳🇱 🇩🇪 🇬🇧 🇨🇭 🇺🇸 🇸🇬 🇯🇵                     │
+│              + CDN Fallbacks: ☁️ Cloudflare, Google, Azure       │
+│                     Your real IP is hidden here                  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -411,10 +301,18 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 
 ---
 
-## 📱 Installation Guide (Coming Soon)
+## 📱 Installation Guide
+
+### Chrome Extension
+```
+1. Download or clone the repository
+2. Open Chrome → chrome://extensions
+3. Enable "Developer mode"
+4. Click "Load unpacked" → Select extension/ folder
+5. Click FreedomVPN icon → Connect!
+```
 
 ### Android
-
 ```
 1. Download FreedomVPN.apk from GitHub Releases
 2. Enable "Install from Unknown Sources" in Settings
@@ -423,11 +321,11 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 ```
 
 ### Windows
-
 ```
-1. Download FreedomVPN-Setup.exe
-2. Run installer
-3. Open FreedomVPN → Click "Connect" → Done!
+1. Install Node.js and npm
+2. cd windows && npm install
+3. npm start (for development)
+4. npm run build:win (for installer)
 ```
 
 ---
@@ -436,26 +334,38 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 
 ```
 FreedomVPN/
-├── android/                    # Android App
-│   ├── app/src/main/
-│   │   ├── java/com/freedomvpn/
-│   │   │   ├── vpn/           # VPN Service
-│   │   │   ├── vpngate/       # Server fetching
-│   │   │   └── ui/            # User interface
-│   │   └── res/               # Resources
-│   └── build.gradle.kts
+├── extension/                  # Chrome Extension v2.0.0
+│   ├── background.js          # (828 lines) Enhanced proxy + anti-censorship
+│   ├── popup.js               # Dynamic stats UI
+│   ├── popup.html             # CDN tab, quality indicators
+│   ├── popup.css              # Dark theme styling
+│   ├── manifest.json          # v2.0.0 with privacy permissions
+│   └── icons/                 # Extension icons
 │
-├── windows/                    # Windows App
-│   └── FreedomVPN.Uwp/
-│       ├── Services/          # VPN logic
-│       ├── ViewModels/        # UI logic
-│       └── VpnPlugin/         # Windows VPN plugin
+├── windows/                    # Windows Electron App v2.0.0
+│   ├── main.js                # (618 lines) Full anti-censorship
+│   ├── renderer.js            # UI logic
+│   ├── index.html             # Custom titlebar, stats
+│   ├── styles.css             # Dark theme
+│   ├── preload.js             # Secure IPC bridge
+│   └── package.json           # Electron 28, electron-builder
 │
-├── shared/                     # Shared tools
+├── app/src/main/java/.../vpn/ # Android App (Kotlin)
+│   ├── anticensorship/        # CensorshipBypassEngine.kt (532 lines)
+│   │                          # LeakProtection.kt
+│   └── stats/                 # DynamicStatsEngine.kt
+│
+├── shared/                     # Cross-Platform JavaScript Modules
+│   ├── anticensorship/        # CensorshipBypassEngine.js (778 lines)
+│   │                          # LeakProtection.js (403 lines)
+│   ├── stats/                 # DynamicStatsEngine.js (457 lines)
 │   ├── vpngate/               # Server parser
 │   └── wireguard/             # Config tools
 │
-└── docs/                       # Documentation
+├── web/                        # Demo website
+├── docs/                       # Documentation
+│   └── SYSTEM_VERIFICATION.md # Full system verification report
+└── android/                    # Android project files
 ```
 
 ---
@@ -464,30 +374,36 @@ FreedomVPN/
 
 ### Prerequisites
 
+**Chrome Extension:**
+- Chrome/Chromium browser
+- Developer mode enabled
+
 **Android:**
-- Android Studio Arctic Fox+
+- Android Studio Hedgehog+
 - JDK 17+
-- Android SDK 26+
+- Android SDK 34+
 
 **Windows:**
-- Visual Studio 2022
-- Windows 10 SDK
-- .NET 6.0+
+- Node.js 18+
+- Electron 28
 
 ### Build Commands
 
 ```bash
+# Chrome Extension - Load unpacked in chrome://extensions
+
 # Android Debug Build
 cd android
 ./gradlew assembleDebug
 
-# Windows Build
+# Windows Development
 cd windows
-dotnet build FreedomVPN.sln
+npm install
+npm start
 
-# Test VPN Gate Parser
-cd shared/vpngate
-python parser.py
+# Windows Build Installer
+cd windows
+npm run build:win
 ```
 
 ---
