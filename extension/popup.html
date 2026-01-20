@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreedomVPN</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">🛡️</div>
+        <div class="logo-text">
+          <h1>FreedomVPN</h1>
+          <p class="tagline" data-i18n="tagline">Digital Freedom for Africa</p>
+        </div>
+      </div>
+      <button class="settings-btn" id="settingsBtn">⚙️</button>
+    </header>
+
+    <!-- Connection Status -->
+    <div class="status-card" id="statusCard">
+      <div class="status-indicator" id="statusIndicator">
+        <div class="status-dot"></div>
+        <span class="status-text" data-i18n="disconnected">Not Connected</span>
+      </div>
+      
+      <!-- Connect Button -->
+      <button class="connect-btn" id="connectBtn">
+        <div class="btn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L3 7v6c0 5.25 3.675 10.15 9 11 5.325-.85 9-5.75 9-11V7l-9-5z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+        </div>
+        <span class="btn-text" data-i18n="connect">Connect</span>
+      </button>
+      
+      <p class="status-message" id="statusMessage" data-i18n="unprotected">Your connection is not protected</p>
+    </div>
+
+    <!-- IP Address Display -->
+    <div class="ip-card" id="ipCard">
+      <div class="ip-header">
+        <span class="ip-label">🌍 <span data-i18n="yourIP">Your IP Address</span></span>
+        <button class="refresh-btn" id="refreshIpBtn">🔄</button>
+      </div>
+      <div class="ip-display">
+        <span class="ip-address" id="ipAddress">Detecting...</span>
+        <button class="copy-btn" id="copyIpBtn">📋</button>
+      </div>
+      <div class="ip-location" id="ipLocation">
+        <span class="location-flag" id="locationFlag">🌍</span>
+        <span class="location-text" id="locationText">Detecting location...</span>
+      </div>
+    </div>
+
+    <!-- Server Selection -->
+    <div class="server-card" id="serverCard">
+      <div class="server-header">
+        <span data-i18n="selectServer">Select Server</span>
+        <span class="server-count" id="serverCount">14 servers</span>
+      </div>
+      
+      <div class="server-tabs">
+        <button class="tab active" data-region="africa">🌍 Africa</button>
+        <button class="tab" data-region="europe">🇪🇺 Europe</button>
+        <button class="tab" data-region="americas">🌎 Americas</button>
+        <button class="tab" data-region="asia">🌏 Asia</button>
+      </div>
+      
+      <div class="server-list" id="serverList">
+        <!-- Servers populated by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="stats-card" id="statsCard">
+      <div class="stat">
+        <span class="stat-icon">⏱️</span>
+        <div class="stat-info">
+          <span class="stat-value" id="connectionTime">00:00:00</span>
+          <span class="stat-label" data-i18n="timeConnected">Time Connected</span>
+        </div>
+      </div>
+      <div class="stat">
+        <span class="stat-icon">💰</span>
+        <div class="stat-info">
+          <span class="stat-value" id="moneySaved">0 UGX</span>
+          <span class="stat-label" data-i18n="moneySaved">Money Saved</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Panel (hidden by default) -->
+    <div class="settings-panel" id="settingsPanel">
+      <div class="settings-header">
+        <button class="back-btn" id="backBtn">←</button>
+        <h2 data-i18n="settings">Settings</h2>
+      </div>
+      
+      <div class="settings-list">
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🌐</span>
+            <span class="setting-label" data-i18n="language">Language</span>
+          </div>
+          <select class="setting-select" id="languageSelect">
+            <option value="en">English</option>
+            <option value="sw">Kiswahili</option>
+            <option value="lg">Luganda</option>
+            <option value="fr">Français</option>
+            <option value="am">አማርኛ</option>
+            <option value="ar">العربية</option>
+            <option value="pt">Português</option>
+            <option value="ha">Hausa</option>
+          </select>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">⚡</span>
+            <span class="setting-label" data-i18n="compression">Data Compression</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="compressionToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">👻</span>
+            <span class="setting-label" data-i18n="stealthMode">Stealth Mode</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="stealthToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🔌</span>
+            <span class="setting-label" data-i18n="autoConnect">Auto Connect</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="autoConnectToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="about-section">
+        <p>FreedomVPN v1.0.0</p>
+        <p class="about-tagline">Built for Uganda 🇺🇬</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
