@@ -1,12 +1,15 @@
 import { NavLink } from 'react-router-dom'
 import { useLanguage } from '../context/LanguageContext'
-import { Home, Server, BarChart3, Settings, Shield } from 'lucide-react'
+import { Home, Server, BarChart3, Settings, Shield, MessageCircle } from 'lucide-react'
+import { useChat } from '../context/ChatContext'
 
 export default function Navigation() {
   const { t } = useLanguage()
+  const { unreadCount } = useChat()
 
   const navItems = [
     { path: '/', icon: Home, label: t('home') },
+    { path: '/chat', icon: MessageCircle, label: 'Chat', badge: unreadCount },
     { path: '/servers', icon: Server, label: t('servers') },
     { path: '/statistics', icon: BarChart3, label: t('statistics') },
     { path: '/settings', icon: Settings, label: t('settings') },
@@ -32,7 +35,7 @@ export default function Navigation() {
         {/* Navigation Items */}
         <div className="flex-1 p-4">
           <div className="space-y-2">
-            {navItems.map(({ path, icon: Icon, label }) => (
+            {navItems.map(({ path, icon: Icon, label, badge }) => (
               <NavLink
                 key={path}
                 to={path}
@@ -46,7 +49,10 @@ export default function Navigation() {
               >
                 {({ isActive }) => (
                   <>
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-green-400' : ''}`} />
+                    <div className="relative">
+                      <Icon className={`w-5 h-5 ${isActive ? 'text-green-400' : ''}`} />
+                      {badge > 0 && <span className="absolute -top-1 -right-2 bg-green-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{badge}</span>}
+                    </div>
                     <span className="font-medium">{label}</span>
                   </>
                 )}
@@ -76,7 +82,7 @@ export default function Navigation() {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-700/50 px-4 py-2 z-40 safe-area-bottom">
         <div className="max-w-md mx-auto">
           <div className="flex justify-around">
-            {navItems.map(({ path, icon: Icon, label }) => (
+            {navItems.map(({ path, icon: Icon, label, badge }) => (
               <NavLink
                 key={path}
                 to={path}
@@ -90,7 +96,10 @@ export default function Navigation() {
               >
                 {({ isActive }) => (
                   <>
-                    <Icon className={`w-6 h-6 ${isActive ? 'scale-110' : ''} transition-transform`} />
+                    <div className="relative">
+                      <Icon className={`w-6 h-6 ${isActive ? 'scale-110' : ''} transition-transform`} />
+                      {badge > 0 && <span className="absolute -top-1 -right-2 bg-green-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{badge}</span>}
+                    </div>
                     <span className="text-xs font-medium">{label}</span>
                   </>
                 )}
