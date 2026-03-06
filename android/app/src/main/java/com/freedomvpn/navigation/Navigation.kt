@@ -1,11 +1,20 @@
 package com.freedomvpn.navigation
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.animation.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.freedomvpn.chat.ui.ChatScreen
+import com.freedomvpn.chat.viewmodel.ChatViewModel
 import com.freedomvpn.ui.screens.ConnectionScreen
 import com.freedomvpn.ui.screens.ServerListScreen
 import com.freedomvpn.ui.screens.SettingsScreen
@@ -17,6 +26,7 @@ sealed class Screen(val route: String) {
     object Connection : Screen("connection")
     object ServerList : Screen("server_list")
     object Settings : Screen("settings")
+    object Chat : Screen("chat")
 }
 
 /**
@@ -57,7 +67,6 @@ fun FreedomNavHost(
         ) {
             ServerListScreen(
                 onServerSelected = { server ->
-                    // TODO: Pass selected server to MainViewModel
                     navController.popBackStack()
                 },
                 onNavigateBack = {
@@ -73,6 +82,29 @@ fun FreedomNavHost(
             SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                }
+            )
+        }
+        
+        // Secure Chat screen
+        composable(
+            route = Screen.Chat.route
+        ) {
+            val chatViewModel: ChatViewModel = hiltViewModel()
+            val uiState by chatViewModel.uiState.collectAsState()
+            val context = LocalContext.current
+            
+            ChatScreen(
+                uiState = uiState,
+                onSetActiveChat = chatViewModel::setActiveChat,
+                onSendMessage = chatViewModel::sendMessage,
+                onAddContact = chatViewModel::addContact,
+                onDeleteConversation = chatViewModel::deleteConversation,
+                onSetDisappearTimer = chatViewModel::setDisappearTimer,
+                onWipeAll = chatViewModel::wipeAll,
+                onCopyToClipboard = { text ->
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("Freedom ID", text))
                 }
             )
         }

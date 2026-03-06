@@ -3,11 +3,13 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { LanguageProvider } from './context/LanguageContext'
 import { VpnProvider } from './context/VpnContext'
 import { StealthProvider } from './context/StealthContext'
+import { ChatProvider } from './context/ChatContext'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import Servers from './pages/Servers'
 import Settings from './pages/Settings'
 import Statistics from './pages/Statistics'
+import Chat from './pages/Chat'
 import Navigation from './components/Navigation'
 import PanicOverlay from './components/PanicOverlay'
 
@@ -40,21 +42,24 @@ function App() {
       <LanguageProvider>
         <VpnProvider>
           <StealthProvider>
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
-              <PanicOverlay />
-              <Navigation />
-              {/* Main content area - offset for sidebar on desktop */}
-              <div className="lg:ml-64 pb-20 lg:pb-0">
-                <div className="max-w-6xl mx-auto">
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/servers" element={<Servers />} />
-                    <Route path="/statistics" element={<Statistics />} />
-                    <Route path="/settings" element={<Settings />} />
-                  </Routes>
+            <ChatProvider>
+              <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+                <PanicOverlay />
+                <Navigation />
+                {/* Main content area - offset for sidebar on desktop */}
+                <div className="lg:ml-64 pb-20 lg:pb-0">
+                  <div className="max-w-6xl mx-auto">
+                    <Routes>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/chat" element={<Chat />} />
+                      <Route path="/servers" element={<Servers />} />
+                      <Route path="/statistics" element={<Statistics />} />
+                      <Route path="/settings" element={<Settings />} />
+                    </Routes>
+                  </div>
                 </div>
               </div>
-            </div>
+            </ChatProvider>
           </StealthProvider>
         </VpnProvider>
       </LanguageProvider>
