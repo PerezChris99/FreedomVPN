@@ -466,6 +466,180 @@ def _scan_secrets() -> Tuple[bool, str]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Phase 3: Android — Server API Client Integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_android_server_api() -> bool:
+    android_vpn = PROJECT_ROOT / "android" / "app" / "src" / "main" / "java" / "com" / "freedomvpn" / "vpn"
+    server_pkg  = android_vpn / "server"
+    sac         = server_pkg / "ServerApiClient.kt"
+    scm         = server_pkg / "ServerConnectionManager.kt"
+    svc         = android_vpn / "FreedomVpnService.kt"
+
+    s = Suite("Android — Server API Client")
+
+    s.run("ServerApiClient.kt + ServerConnectionManager.kt present", lambda: (
+        (sac.exists() and scm.exists(), f"sac={sac.exists()} scm={scm.exists()}")
+    ))
+    s.run("ServerApiClient — HTTPS enforcement", lambda: (
+        (False, "file missing") if not sac.exists() else (
+            lambda txt: (
+                'https://' in txt and ('startsWith' in txt or 'WARNING' in txt),
+                "HTTPS enforcement present"
+            )
+        )(sac.read_text(encoding="utf-8"))
+    ))
+    s.run("ServerApiClient — 44-char key validation before send", lambda: (
+        (False, "file missing") if not sac.exists() else (
+            lambda txt: (
+                "44" in txt and ("isValidWireGuardKey" in txt or "length != 44" in txt),
+                "key validation present"
+            )
+        )(sac.read_text(encoding="utf-8"))
+    ))
+    s.run("ServerApiClient — registerPeer() method", lambda: (
+        (False, "file missing") if not sac.exists() else (
+            "fun registerPeer" in sac.read_text(encoding="utf-8"), "present"
+        )
+    ))
+    s.run("ServerApiClient — fetchServers() method", lambda: (
+        (False, "file missing") if not sac.exists() else (
+            "fun fetchServers" in sac.read_text(encoding="utf-8"), "present"
+        )
+    ))
+    s.run("ServerApiClient — checkHealth() method", lambda: (
+        (False, "file missing") if not sac.exists() else (
+            "fun checkHealth" in sac.read_text(encoding="utf-8"), "present"
+        )
+    ))
+    s.run("ServerApiClient — sends publicKey not privateKey", lambda: (
+        (False, "file missing") if not sac.exists() else (
+            '"publicKey"' in sac.read_text(encoding="utf-8"), "publicKey in request body"
+        )
+    ))
+    s.run("ServerConnectionManager — EncryptedSharedPreferences", lambda: (
+        (False, "file missing") if not scm.exists() else (
+            "EncryptedSharedPreferences" in scm.read_text(encoding="utf-8"), "credentials stored encrypted"
+        )
+    ))
+    s.run("ServerConnectionManager — key pair generated locally", lambda: (
+        (False, "file missing") if not scm.exists() else (
+            "getOrCreateKeyPair" in scm.read_text(encoding="utf-8"), "private key stays on device"
+        )
+    ))
+    s.run("ServerConnectionManager — uses server-assigned IP", lambda: (
+        (False, "file missing") if not scm.exists() else (
+            "assignedIP" in scm.read_text(encoding="utf-8"), "dynamic IP from server"
+        )
+    ))
+    s.run("FreedomVpnService — injects ServerConnectionManager", lambda: (
+        (False, "file missing") if not svc.exists() else (
+            "ServerConnectionManager" in svc.read_text(encoding="utf-8"), "injected"
+        )
+    ))
+    s.run("FreedomVpnService — startServerApiConnection() path", lambda: (
+        (False, "file missing") if not svc.exists() else (
+            "startServerApiConnection" in svc.read_text(encoding="utf-8"), "production connect path"
+        )
+    ))
+    return s.report()
+
+
+def suite_windows_server_api() -> bool:
+    tunnel_js = PROJECT_ROOT / "windows" / "system-tunnel.js"
+    main_js   = PROJECT_ROOT / "windows" / "main.js"
+
+    s = Suite("Windows — Server API Connection")
+
+    def _t(path, check_fn):
+        if not path.exists():
+            return False, "file missing"
+        return check_fn(path.read_text(encoding="utf-8"))
+
+    s.run("tunnel.js + main.js present", lambda: (
+        tunnel_js.exists() and main_js.exists(), "both present"
+    ))
+    s.run("system-tunnel.js — static registerPeer()", lambda: _t(
+        tunnel_js, lambda txt: ("static async registerPeer" in txt, "present")
+    ))
+    s.run("system-tunnel.js — registerPeer enforces HTTPS", lambda: _t(
+        tunnel_js, lambda txt: (
+            "startsWith('https://')" in txt or 'startsWith("https://")' in txt,
+            "HTTPS enforced"
+        )
+    ))
+    s.run("system-tunnel.js — static fetchServerList()", lambda: _t(
+        tunnel_js, lambda txt: ("static async fetchServerList" in txt, "present")
+    ))
+    s.run("system-tunnel.js — connectViaServerApi()", lambda: _t(
+        tunnel_js, lambda txt: ("async connectViaServerApi" in txt, "present")
+    ))
+    s.run("system-tunnel.js — private key persisted", lambda: _t(
+        tunnel_js, lambda txt: ("wg_private_key" in txt or "generateKeyPairAsync" in txt, "key persistence")
+    ))
+    s.run("system-tunnel.js — stable anonymous device ID", lambda: _t(
+        tunnel_js, lambda txt: ("_getDeviceId" in txt, "anonymous ID")
+    ))
+    s.run("main.js — connect-via-server-api IPC handler", lambda: _t(
+        main_js, lambda txt: ("connect-via-server-api" in txt, "IPC handler present")
+    ))
+    s.run("main.js — IPC validates https:// URL", lambda: _t(
+        main_js, lambda txt: ("https://" in txt and "startsWith" in txt, "URL validation")
+    ))
+    s.run("main.js — server_url stored in electron-store", lambda: _t(
+        main_js, lambda txt: ("server_url" in txt and "store.set" in txt, "persistent")
+    ))
+    return s.report()
+
+
+def suite_extension_server_api() -> bool:
+    bg = PROJECT_ROOT / "extension" / "background.js"
+
+    s = Suite("Extension — Server API Integration")
+
+    def _t(check_fn):
+        if not bg.exists():
+            return False, "file missing"
+        return check_fn(bg.read_text(encoding="utf-8"))
+
+    s.run("extension/background.js present", lambda: (bg.exists(), str(bg)))
+    s.run("FreedomVPNServerService defined", lambda: _t(
+        lambda txt: ("FreedomVPNServerService" in txt, "service present")
+    ))
+    s.run("Server URL stored in chrome.storage.sync", lambda: _t(
+        lambda txt: (
+            "chrome.storage.sync" in txt and "freedomvpn_server_url" in txt,
+            "URL persisted"
+        )
+    ))
+    s.run("HTTPS-only enforcement for server URL", lambda: _t(
+        lambda txt: (
+            "startsWith('https://')" in txt or 'startsWith("https://")' in txt,
+            "HTTPS enforced"
+        )
+    ))
+    s.run("Fetches /api/servers from production server", lambda: _t(
+        lambda txt: ("/api/servers" in txt and "fetchServers" in txt, "endpoint present")
+    ))
+    s.run("setFreedomServerUrl message handler", lambda: _t(
+        lambda txt: ("setFreedomServerUrl" in txt, "handler present")
+    ))
+    s.run("getFreedomServerUrl message handler", lambda: _t(
+        lambda txt: ("getFreedomServerUrl" in txt, "handler present")
+    ))
+    s.run("refreshFreedomServers message handler", lambda: _t(
+        lambda txt: ("refreshFreedomServers" in txt, "handler present")
+    ))
+    s.run("FreedomVPN servers preferred over VPNGate", lambda: _t(
+        lambda txt: (
+            "freedomServers" in txt and "VPNGate" in txt,
+            "FreedomVPN first, VPNGate fallback"
+        )
+    ))
+    return s.report()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -476,13 +650,16 @@ def main():
     print("=" * 70)
 
     suites = [
-        ("VPN Gate API",         suite_vpngate),
-        ("Cryptography",         suite_crypto),
-        ("Android Security",     suite_android),
-        ("Extension Security",   suite_extension),
-        ("Windows Security",     suite_windows),
-        ("Server Infrastructure",suite_server_infra),
-        ("Project Structure",    suite_structure),
+        ("VPN Gate API",                    suite_vpngate),
+        ("Cryptography",                    suite_crypto),
+        ("Android Security",                suite_android),
+        ("Extension Security",              suite_extension),
+        ("Windows Security",                suite_windows),
+        ("Server Infrastructure",           suite_server_infra),
+        ("Project Structure",               suite_structure),
+        ("Android — Server API Client",     suite_android_server_api),
+        ("Windows — Server API Connection", suite_windows_server_api),
+        ("Extension — Server API",          suite_extension_server_api),
     ]
 
     results = []
