@@ -13,6 +13,8 @@ import com.freedomvpn.FreedomVpnApplication
 import com.freedomvpn.R
 import com.freedomvpn.ui.MainActivity
 import com.freedomvpn.vpngate.VpnGateServer
+import com.freedomvpn.vpn.server.ServerApiClient
+import com.freedomvpn.vpn.server.ServerConnectionManager
 import com.freedomvpn.vpn.wireguard.WireGuardManager
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
@@ -47,6 +49,9 @@ class FreedomVpnService : VpnService() {
     @Inject
     lateinit var wireGuardManager: WireGuardManager
 
+    @Inject
+    lateinit var serverConnectionManager: ServerConnectionManager
+
     companion object {
         private const val TAG = "FreedomVpnService"
         
@@ -58,6 +63,8 @@ class FreedomVpnService : VpnService() {
         const val EXTRA_WG_PUBLIC_KEY = "extra_wg_public_key"
         const val EXTRA_WG_ENDPOINT = "extra_wg_endpoint"
         const val EXTRA_WG_PORT = "extra_wg_port"
+        /** Optional: override which server the client connects to. */
+        const val EXTRA_SERVER_URL = "extra_server_url"
         
         // VPN Configuration
         private const val VPN_MTU = 1280
@@ -140,11 +147,11 @@ class FreedomVpnService : VpnService() {
         
         when (intent?.action) {
             ACTION_CONNECT -> {
-                val serverJson = intent.getStringExtra(EXTRA_SERVER)
-                // Parse server from JSON and connect
-                startVpnConnection()
+                val serverUrl = intent.getStringExtra(EXTRA_SERVER_URL)
+                startServerApiConnection(serverUrl)
             }
             ACTION_CONNECT_WIREGUARD -> {
+                // Legacy path: caller supplies pre-known server credentials directly.
                 val publicKey = intent.getStringExtra(EXTRA_WG_PUBLIC_KEY) ?: return START_STICKY
                 val endpoint = intent.getStringExtra(EXTRA_WG_ENDPOINT) ?: return START_STICKY
                 val port = intent.getIntExtra(EXTRA_WG_PORT, 51820)
@@ -163,6 +170,56 @@ class FreedomVpnService : VpnService() {
         serviceScope.cancel()
         stopVpnConnection()
         Log.d(TAG, "VPN Service destroyed")
+    }
+
+    /**
+     * Primary connection path: register with the server API and start WireGuard tunnel.
+     *
+     * This is the production flow:
+     *  1. ServerConnectionManager registers client public key → receives assigned IP + server credentials
+     *  2. WireGuard tunnel is started with those credentials
+     *  3. All traffic is routed through the tunnel (0.0.0.0/0)
+     */
+    fun startServerApiConnection(serverUrl: String? = null) {
+        if (_connectionState.value == ConnectionState.CONNECTING ||
+            _connectionState.value == ConnectionState.CONNECTED) {
+            Log.w(TAG, "Already connected or connecting")
+            return
+        }
+
+        serviceScope.launch {
+            try {
+                _connectionState.value = ConnectionState.CONNECTING
+                startForeground(
+                    FreedomVpnApplication.VPN_NOTIFICATION_ID,
+                    createNotification("Registering with server…"),
+                )
+
+                val result = serverConnectionManager.connectToServer(
+                    serverUrl = serverUrl,
+                    preferCachedCredentials = true,
+                )
+
+                if (result.isSuccess && result.getOrDefault(false)) {
+                    _connectionState.value = ConnectionState.CONNECTED
+                    _connectionStats.value = ConnectionStats(
+                        connectedAt = System.currentTimeMillis(),
+                        serverName  = serverUrl ?: ServerApiClient.BASE_URL,
+                    )
+                    updateNotification("Connected via WireGuard")
+                    Log.d(TAG, "Server API connection established")
+                } else {
+                    val err = result.exceptionOrNull()?.message ?: "Unknown error"
+                    Log.e(TAG, "Server API connection failed: $err")
+                    _connectionState.value = ConnectionState.ERROR
+                    updateNotification("Connection failed — check server URL")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "startServerApiConnection exception", e)
+                _connectionState.value = ConnectionState.ERROR
+                updateNotification("Connection failed")
+            }
+        }
     }
 
     /**
