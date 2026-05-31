@@ -1107,4 +1107,43 @@ app.on('before-quit', () => {
   disconnect();
 });
 
+// ── Server API production connect ─────────────────────────────────────────
+
+/**
+ * IPC: connect to the production FreedomVPN server via peer registration API.
+ * Renderer sends { serverUrl } — we register the WireGuard public key, get
+ * credentials, and start the system-wide WireGuard tunnel.
+ */
+ipcMain.handle('connect-via-server-api', async (event, { serverUrl }) => {
+  try {
+    if (!serverUrl || !serverUrl.startsWith('https://')) {
+      return { success: false, error: 'serverUrl must be an HTTPS URL' };
+    }
+    // Persist the chosen server URL for future reconnects
+    store.set('server_url', serverUrl);
+
+    const { SystemWideTunnel } = require('./system-tunnel');
+    const tunnel = new SystemWideTunnel();
+    const result = await tunnel.connectViaServerApi(serverUrl, store);
+    return { success: true, ...result };
+  } catch (err) {
+    console.error('[FreedomVPN] connect-via-server-api failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+/** IPC: get the stored server URL (so renderer can pre-fill the field). */
+ipcMain.handle('get-server-url', () => {
+  return store.get('server_url') || '';
+});
+
+/** IPC: set/update the server URL without connecting. */
+ipcMain.handle('set-server-url', (event, url) => {
+  if (!url || !url.startsWith('https://')) {
+    return { success: false, error: 'URL must start with https://' };
+  }
+  store.set('server_url', url);
+  return { success: true };
+});
+
 console.log('[FreedomVPN] Windows app starting... 🛡️');

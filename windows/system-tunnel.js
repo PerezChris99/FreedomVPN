@@ -508,6 +508,147 @@ Write-Host "VPN Connected Successfully"
             bytesOut: this.stats.bytesOut
         };
     }
+
+    // ── Server API integration ────────────────────────────────────────────────
+
+    /**
+     * Register this client's WireGuard public key with the FreedomVPN server.
+     * Returns peer credentials: assignedIP, serverPublicKey, serverEndpoint, dns.
+     *
+     * @param {string} publicKey  44-char base64 WireGuard public key
+     * @param {string} serverUrl  Base URL of the FreedomVPN peer management API
+     * @returns {Promise<{id, assignedIP, serverPublicKey, serverEndpoint, dns}>}
+     */
+    static async registerPeer(publicKey, serverUrl) {
+        if (!serverUrl || !serverUrl.startsWith('https://')) {
+            throw new Error('serverUrl must be an HTTPS URL');
+        }
+        if (!publicKey || publicKey.length !== 44) {
+            throw new Error('publicKey must be a 44-character base64 WireGuard key');
+        }
+
+        const { execFile } = require('child_process');
+        // Use node-fetch (already in windows/package.json)
+        const fetch = require('node-fetch');
+
+        const response = await fetch(`${serverUrl}/api/peers/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                publicKey,
+                platform: 'windows',
+                deviceId: SystemWideTunnel._getDeviceId(),
+            }),
+            timeout: 15000,
+        });
+
+        if (!response.ok) {
+            const text = await response.text().catch(() => '');
+            throw new Error(`Server returned ${response.status}: ${text.slice(0, 200)}`);
+        }
+
+        return response.json();
+    }
+
+    /**
+     * Fetch the list of available VPN servers from the FreedomVPN API.
+     * @param {string} serverUrl  Base URL of the FreedomVPN peer management API
+     * @returns {Promise<Array<{id, name, country, endpoint, publicKey}>>}
+     */
+    static async fetchServerList(serverUrl) {
+        if (!serverUrl || !serverUrl.startsWith('https://')) {
+            throw new Error('serverUrl must be an HTTPS URL');
+        }
+
+        const fetch = require('node-fetch');
+        const response = await fetch(`${serverUrl}/api/servers`, { timeout: 15000 });
+
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}`);
+        }
+
+        const json = await response.json();
+        return json.servers || [];
+    }
+
+    /**
+     * Full production connect flow:
+     *   1. Generate / restore key pair
+     *   2. Register public key with server API
+     *   3. Start WireGuard tunnel with returned credentials
+     *
+     * @param {string} serverUrl  HTTPS base URL of the FreedomVPN peer management API
+     * @param {object} store      electron-store instance (or any {get,set} object)
+     */
+    async connectViaServerApi(serverUrl, store) {
+        console.log('[FreedomVPN] Connecting via server API:', serverUrl);
+
+        // 1. Get or generate key pair (persist in store)
+        let keyPair = null;
+        const storedPrivKey = store && store.get('wg_private_key');
+        if (storedPrivKey) {
+            const nacl = require('tweetnacl');
+            const privBytes = Buffer.from(storedPrivKey, 'base64');
+            const pubBytes  = nacl.scalarMult.base(new Uint8Array(privBytes));
+            keyPair = {
+                privateKey: storedPrivKey,
+                publicKey:  Buffer.from(pubBytes).toString('base64'),
+            };
+        } else {
+            keyPair = await SystemWideTunnel.generateKeyPairAsync();
+            if (store) {
+                store.set('wg_private_key', keyPair.privateKey);
+            }
+        }
+
+        // 2. Register with server
+        const creds = await SystemWideTunnel.registerPeer(keyPair.publicKey, serverUrl);
+        console.log('[FreedomVPN] Registered peer:', creds.id, 'IP:', creds.assignedIP);
+
+        // 3. Start WireGuard tunnel
+        const [endpointHost, endpointPort] = this._parseEndpoint(creds.serverEndpoint);
+        return this.connectWireGuard({
+            privateKey:      keyPair.privateKey,
+            serverPublicKey: creds.serverPublicKey,
+            serverEndpoint:  endpointHost,
+            serverPort:      endpointPort || 51820,
+            clientAddress:   creds.assignedIP,
+            dns:             creds.dns || ['1.1.1.1', '1.0.0.1'],
+        });
+    }
+
+    /** Parse "host:port" → [host, port] (handles IPv6 bracket notation). */
+    _parseEndpoint(endpoint) {
+        if (endpoint.startsWith('[')) {
+            const close = endpoint.lastIndexOf(']');
+            return [endpoint.slice(1, close), parseInt(endpoint.slice(close + 2)) || 51820];
+        }
+        const last = endpoint.lastIndexOf(':');
+        if (last < 0) return [endpoint, 51820];
+        return [endpoint.slice(0, last), parseInt(endpoint.slice(last + 1)) || 51820];
+    }
+
+    /**
+     * Returns a stable, anonymous device identifier stored in %APPDATA%.
+     * Private — not exported from the module.
+     */
+    static _getDeviceId() {
+        const idFile = require('path').join(
+            process.env.APPDATA || require('os').homedir(),
+            'FreedomVPN', 'device_id.txt'
+        );
+        try {
+            if (require('fs').existsSync(idFile)) {
+                return require('fs').readFileSync(idFile, 'utf8').trim();
+            }
+        } catch {}
+        const id = require('crypto').randomBytes(16).toString('hex');
+        try {
+            require('fs').mkdirSync(require('path').dirname(idFile), { recursive: true });
+            require('fs').writeFileSync(idFile, id, { mode: 0o600 });
+        } catch {}
+        return id;
+    }
 }
 
 /**
