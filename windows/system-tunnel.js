@@ -64,23 +64,86 @@ class SystemWideTunnel {
     }
 
     /**
-     * Generate WireGuard keypair
+     * Generate WireGuard keypair using proper Curve25519 scalar multiplication.
+     *
+     * WireGuard key format:
+     *  - Private key: 32 random bytes, clamped per RFC 7748
+     *  - Public key:  Curve25519(private, basepoint)  — NOT a hash
+     *
+     * We prefer the WireGuard CLI (`wg genkey / wg pubkey`) when available
+     * because it is the canonical reference implementation. When WireGuard is
+     * not yet installed we fall back to tweetnacl which implements the same
+     * Curve25519 scalar multiplication.
+     *
+     * @returns {{ privateKey: string, publicKey: string }}  base64-encoded keys
      */
     static generateKeyPair() {
-        const privateKey = crypto.randomBytes(32);
-        // Clamp for Curve25519
-        privateKey[0] &= 248;
-        privateKey[31] &= 127;
-        privateKey[31] |= 64;
-        
-        // For proper public key derivation, we'd need curve25519
-        // In production, use the actual WireGuard tools or a proper crypto lib
+        // Attempt to use the WireGuard CLI first (most reliable path)
+        const wgPath = SystemWideTunnel.isWireGuardInstalled();
+        if (wgPath && wgPath !== 'wireguard') {
+            // wg.exe lives next to wireguard.exe
+            const wgTool = path.join(path.dirname(wgPath), 'wg.exe');
+            if (fs.existsSync(wgTool)) {
+                try {
+                    const privateKey = execSync(`"${wgTool}" genkey`, { encoding: 'utf8' }).trim();
+                    const publicKey  = execSync(`echo ${privateKey} | "${wgTool}" pubkey`, {
+                        encoding: 'utf8', shell: true
+                    }).trim();
+                    return { privateKey, publicKey };
+                } catch {
+                    // Fall through to JS implementation
+                }
+            }
+        }
+
+        // Pure-JS fallback using tweetnacl (correct Curve25519 implementation)
+        const nacl = require('tweetnacl');
+
+        // Generate 32 cryptographically random bytes
+        const secretKey = crypto.randomBytes(32);
+
+        // Clamp the private key per RFC 7748 §5 (required by WireGuard)
+        secretKey[0]  &= 248;
+        secretKey[31]  = (secretKey[31] & 127) | 64;
+
+        // Derive public key: pubkey = secretKey * G  (Curve25519 base point)
+        const publicKeyBytes = nacl.scalarMult.base(new Uint8Array(secretKey));
+
         return {
-            privateKey: privateKey.toString('base64'),
-            // Public key would be derived from private key via Curve25519
-            // This is a placeholder - real implementation uses wg genkey | wg pubkey
-            publicKey: crypto.createHash('sha256').update(privateKey).digest().toString('base64')
+            privateKey: secretKey.toString('base64'),
+            publicKey:  Buffer.from(publicKeyBytes).toString('base64'),
         };
+    }
+
+    /**
+     * Async variant — always uses WireGuard CLI when available, guaranteeing
+     * 100% compatible key encoding without needing tweetnacl in PATH-only envs.
+     * @returns {Promise<{ privateKey: string, publicKey: string }>}
+     */
+    static async generateKeyPairAsync() {
+        const wgPath = SystemWideTunnel.isWireGuardInstalled();
+        if (wgPath) {
+            const dir    = wgPath !== 'wireguard' ? path.dirname(wgPath) : '';
+            const wgTool = dir ? path.join(dir, 'wg.exe') : 'wg';
+            try {
+                return await new Promise((resolve, reject) => {
+                    exec(`"${wgTool}" genkey`, (err, privOut) => {
+                        if (err) return reject(err);
+                        const privateKey = privOut.trim();
+                        exec(`echo ${privateKey} | "${wgTool}" pubkey`, { shell: true },
+                            (err2, pubOut) => {
+                                if (err2) return reject(err2);
+                                resolve({ privateKey, publicKey: pubOut.trim() });
+                            }
+                        );
+                    });
+                });
+            } catch {
+                // fall through
+            }
+        }
+        // Sync JS fallback is always safe
+        return SystemWideTunnel.generateKeyPair();
     }
 
     /**
@@ -145,10 +208,10 @@ PersistentKeepalive = ${persistentKeepalive}`;
 
         console.log('[FreedomVPN] Starting system-wide WireGuard tunnel...');
 
-        // Generate or use provided keys
-        const keyPair = options.privateKey 
+        // Generate or use provided keys (async, uses WireGuard CLI when available)
+        const keyPair = options.privateKey
             ? { privateKey: options.privateKey }
-            : SystemWideTunnel.generateKeyPair();
+            : await SystemWideTunnel.generateKeyPairAsync();
 
         // Generate config
         const config = this.generateConfig({
@@ -261,12 +324,9 @@ Write-Host "VPN Connected Successfully"
             exec(`powershell -ExecutionPolicy Bypass -File "${scriptPath}"`, (error, stdout, stderr) => {
                 if (error) {
                     console.error('[FreedomVPN] Windows VPN error:', stderr);
-                    // Don't reject - just log the error and continue
-                    // The VPN may still work or we can use proxy fallback
-                    console.log('[FreedomVPN] Windows VPN setup failed, continuing with proxy mode...');
-                    this.isConnected = true; // Mark as connected anyway for UI
-                    this.stats.startTime = Date.now();
-                    resolve({ success: true, tunnelType: 'ProxyFallback', note: 'Windows VPN failed, using proxy' });
+                    // Do NOT mark as connected — the tunnel failed.
+                    // Propagate the error so the UI shows the real state.
+                    reject(new Error(`Windows VPN connection failed: ${stderr || error.message}`));
                 } else {
                     this.isConnected = true;
                     this.stats.startTime = Date.now();

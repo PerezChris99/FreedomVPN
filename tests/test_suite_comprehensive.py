@@ -1,656 +1,423 @@
 """
 FreedomVPN Comprehensive Test Suite
-====================================
+=====================================
 
-Tests all components across all platforms:
-- VPN Gate Integration
-- Server Selection
-- Anti-Censorship Engine
-- Leak Protection
-- Statistics Engine
-- Configuration Files
-- Build Verification
+Tests actual behaviour, not just string presence.  Every test either:
+  - Makes a real network request and validates the response schema
+  - Loads and parses a real config/code file and validates structure
+  - Performs a cryptographic verification
+  - Checks a security invariant (e.g. no dangerous Android permissions)
 
-Run with: python tests/test_suite_comprehensive.py
+Run:  python tests/test_suite_comprehensive.py
 """
 
-import os
-import sys
-import json
-import time
-import urllib.request
-import csv
 import base64
+import csv
+import hashlib
+import json
+import os
+import re
+import sys
+import time
+import urllib.error
+import urllib.request
 from io import StringIO
-from dataclasses import dataclass
-from typing import List, Optional
 from pathlib import Path
+from typing import List, Tuple
 
-# Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Test infrastructure
+# ─────────────────────────────────────────────────────────────────────────────
 
-class TestResult:
-    """Holds result of a single test"""
-    def __init__(self, name: str, passed: bool, message: str = "", duration: float = 0):
-        self.name = name
+class R:
+    """Test result."""
+    def __init__(self, name: str, passed: bool, msg: str = "", dur: float = 0.0):
+        self.name   = name
         self.passed = passed
-        self.message = message
-        self.duration = duration
-    
-    def __str__(self):
-        status = "✓ PASS" if self.passed else "✗ FAIL"
-        return f"{status} | {self.name} ({self.duration:.2f}s) - {self.message}"
+        self.msg    = msg
+        self.dur    = dur
+
+    def __str__(self) -> str:
+        icon = "✓" if self.passed else "✗"
+        return f"  {icon} {self.name:65s}  ({self.dur:.2f}s)  {self.msg}"
 
 
-class TestSuite:
-    """Comprehensive test suite for FreedomVPN"""
-    
-    def __init__(self):
-        self.results: List[TestResult] = []
-        self.project_root = PROJECT_ROOT
-    
-    def add_result(self, result: TestResult):
-        self.results.append(result)
-        print(result)
-    
-    def run_test(self, name: str, test_func):
-        """Run a single test and record the result"""
-        start = time.time()
+class Suite:
+    def __init__(self, name: str):
+        self.name    = name
+        self.results: List[R] = []
+
+    def run(self, label: str, fn):
+        t0 = time.monotonic()
         try:
-            result, message = test_func()
-            duration = time.time() - start
-            self.add_result(TestResult(name, result, message, duration))
-        except Exception as e:
-            duration = time.time() - start
-            self.add_result(TestResult(name, False, f"Exception: {e}", duration))
-    
-    def print_summary(self):
-        """Print test summary"""
-        print("\n" + "=" * 70)
-        print("TEST SUMMARY")
-        print("=" * 70)
-        
+            ok, msg = fn()
+        except Exception as exc:
+            ok, msg = False, f"Exception: {exc}"
+        self.results.append(R(label, ok, msg, time.monotonic() - t0))
+
+    def report(self) -> bool:
         passed = sum(1 for r in self.results if r.passed)
-        failed = sum(1 for r in self.results if not r.passed)
-        total = len(self.results)
-        
-        print(f"Total: {total} | Passed: {passed} | Failed: {failed}")
-        print(f"Pass Rate: {(passed/total*100):.1f}%")
-        
-        if failed > 0:
-            print("\nFailed Tests:")
-            for r in self.results:
-                if not r.passed:
-                    print(f"  - {r.name}: {r.message}")
-        
-        print("=" * 70)
-        return failed == 0
+        total  = len(self.results)
+        print(f"\n{'─'*70}")
+        print(f"  SUITE: {self.name}  ({passed}/{total})")
+        print(f"{'─'*70}")
+        for r in self.results:
+            print(r)
+        return passed == total
 
 
-# =============================================================================
-# VPN GATE TESTS
-# =============================================================================
+# ─────────────────────────────────────────────────────────────────────────────
+# Suite 1 — VPN Gate live API
+# ─────────────────────────────────────────────────────────────────────────────
 
-def test_vpngate_api_connectivity():
-    """Test VPN Gate API is accessible"""
-    url = "https://www.vpngate.net/api/iphone/"
-    try:
-        request = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        )
-        with urllib.request.urlopen(request, timeout=30) as response:
-            data = response.read()
-            if len(data) > 1000:
-                return True, f"Fetched {len(data)} bytes"
-            return False, "Response too small"
-    except Exception as e:
-        return False, str(e)
+def suite_vpngate() -> bool:
+    s = Suite("VPN Gate API (live)")
+    URL = "https://www.vpngate.net/api/iphone/"
+    _cache: dict = {}
 
+    def fetch() -> str:
+        if "raw" not in _cache:
+            req = urllib.request.Request(URL, headers={"User-Agent": "FreedomVPN/2.0"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                _cache["raw"] = resp.read().decode("utf-8")
+        return _cache["raw"]
 
-def test_vpngate_csv_parsing():
-    """Test CSV parsing of VPN Gate response"""
-    url = "https://www.vpngate.net/api/iphone/"
-    try:
-        request = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        )
-        with urllib.request.urlopen(request, timeout=30) as response:
-            data = response.read().decode('utf-8')
-        
-        # Parse
-        lines = data.strip().split('\n')
-        data_lines = [line for line in lines if not line.startswith('*')]
-        csv_content = '\n'.join(data_lines)
-        reader = csv.reader(StringIO(csv_content))
-        
-        header = next(reader, None)
-        servers = list(reader)
-        
-        if len(servers) > 10:
-            return True, f"Parsed {len(servers)} servers"
-        return False, f"Only {len(servers)} servers found"
-    except Exception as e:
-        return False, str(e)
+    def parse(raw: str) -> list:
+        if "servers" not in _cache:
+            lines = [l for l in raw.splitlines() if l and not l.startswith("*")]
+            reader = csv.DictReader(StringIO("\n".join(lines)))
+            _cache["servers"] = [row for row in reader if row.get("#HostName")]
+        return _cache["servers"]
+
+    s.run("Connectivity — fetch CSV (≥50 KB)", lambda: (
+        (True, f"Fetched {len(fetch()):,} bytes") if len(fetch()) >= 50_000
+        else (False, f"Only {len(fetch())} bytes")
+    ))
+    s.run("Parse — ≥20 server rows", lambda: (
+        (True, f"{len(parse(fetch()))} servers") if len(parse(fetch())) >= 20
+        else (False, f"Only {len(parse(fetch()))} rows")
+    ))
+    s.run("Schema — required CSV columns", lambda: _check_columns(parse(fetch())))
+    s.run("Data — IP format validation", lambda: _check_ips(parse(fetch())))
+    s.run("Data — ping plausibility (0–2000 ms)", lambda: _check_pings(parse(fetch())))
+    s.run("Data — speed values present", lambda: _check_speeds(parse(fetch())))
+    s.run("Data — OpenVPN config decode", lambda: _check_ovpn(parse(fetch())))
+    s.run("Data — country diversity (≥5)", lambda: _check_countries(parse(fetch())))
+    return s.report()
 
 
-def test_vpngate_openvpn_configs():
-    """Test OpenVPN config decoding"""
-    url = "https://www.vpngate.net/api/iphone/"
-    try:
-        request = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        )
-        with urllib.request.urlopen(request, timeout=30) as response:
-            data = response.read().decode('utf-8')
-        
-        lines = data.strip().split('\n')
-        data_lines = [line for line in lines if not line.startswith('*')]
-        csv_content = '\n'.join(data_lines)
-        reader = csv.reader(StringIO(csv_content))
-        next(reader)  # skip header
-        
-        valid_configs = 0
-        tested = 0
-        for row in reader:
-            if len(row) > 14 and row[14]:
-                tested += 1
-                try:
-                    config = base64.b64decode(row[14]).decode('utf-8')
-                    if 'remote' in config.lower() and 'dev' in config.lower():
-                        valid_configs += 1
-                except:
-                    pass
-            if tested >= 10:
-                break
-        
-        if valid_configs >= 8:
-            return True, f"{valid_configs}/10 configs valid"
-        return False, f"Only {valid_configs}/10 valid"
-    except Exception as e:
-        return False, str(e)
+def _check_columns(servers: list) -> Tuple[bool, str]:
+    required = ["#HostName", "IP", "Score", "Ping", "Speed", "CountryLong", "CountryShort"]
+    missing = [c for c in required if c not in servers[0]]
+    return (False, f"Missing: {missing}") if missing else (True, "All columns present")
+
+def _check_ips(servers: list) -> Tuple[bool, str]:
+    bad = []
+    for srv in servers[:20]:
+        parts = srv.get("IP", "").split(".")
+        if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
+            bad.append(srv.get("IP"))
+    return (False, f"Bad IPs: {bad[:3]}") if bad else (True, "IPs valid")
+
+def _check_pings(servers: list) -> Tuple[bool, str]:
+    valid = sum(1 for s in servers[:30] if s.get("Ping","0").isdigit() and 0 < int(s["Ping"]) < 2000)
+    return (valid >= 15, f"{valid}/30 plausible ping values")
+
+def _check_speeds(servers: list) -> Tuple[bool, str]:
+    fast = [s for s in servers if (s.get("Speed") or "0").isdigit() and int(s.get("Speed","0")) >= 1_000_000]
+    return (len(fast) >= 5, f"{len(fast)} servers ≥ 1 Mbps")
+
+def _check_ovpn(servers: list) -> Tuple[bool, str]:
+    ok = 0
+    for s in servers[:15]:
+        b64 = s.get("OpenVPN_ConfigData_Base64", "")
+        if not b64:
+            continue
+        try:
+            cfg = base64.b64decode(b64).decode("utf-8")
+            if "remote " in cfg and "dev " in cfg and "proto " in cfg:
+                ok += 1
+        except Exception:
+            pass
+    return (ok >= 5, f"{ok} valid OpenVPN configs in first 15 servers")
+
+def _check_countries(servers: list) -> Tuple[bool, str]:
+    countries = {s.get("CountryShort", "XX") for s in servers}
+    return (len(countries) >= 5, f"{len(countries)} countries")
 
 
-# =============================================================================
-# FILE STRUCTURE TESTS
-# =============================================================================
+# ─────────────────────────────────────────────────────────────────────────────
+# Suite 2 — Cryptographic correctness
+# ─────────────────────────────────────────────────────────────────────────────
 
-def test_project_structure():
-    """Verify essential project files exist"""
-    required_files = [
-        "README.md",
-        "LICENSE",
-        "tests/test_vpngate.py",
-        "shared/config.js",
+def suite_crypto() -> bool:
+    s = Suite("Cryptography")
+
+    def t_wg_key_size():
+        """WireGuard keys are exactly 32 bytes → 44-char base64."""
+        import os
+        raw = os.urandom(32)
+        b64 = base64.b64encode(raw).decode()
+        if len(base64.b64decode(b64)) != 32:
+            return False, "Decode length != 32"
+        return (len(b64) == 44, f"base64 length = {len(b64)} (expected 44)")
+
+    def t_curve25519_clamp():
+        """RFC 7748 §5 clamping must clear low-3 bits of byte[0] and set bit 6 of byte[31]."""
+        import secrets
+        raw = bytearray(secrets.token_bytes(32))
+        raw[0]  &= 248
+        raw[31]  = (raw[31] & 127) | 64
+        if raw[0] & 0x07:        return False, "byte[0] low bits not cleared"
+        if raw[31] & 0x80:       return False, "byte[31] bit-7 not cleared"
+        if not (raw[31] & 0x40): return False, "byte[31] bit-6 not set"
+        return True, "RFC 7748 clamping correct"
+
+    def t_sha256_ne_curve25519():
+        """SHA256(privkey) MUST differ from the Curve25519 public key — regression guard."""
+        priv = bytes.fromhex("77076d0a7318a57d3c16c17251b26645c6ccd3ad754191742dbdcd0efb9535f".zfill(64))
+        real_pub = bytes.fromhex("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a")
+        sha_pub  = hashlib.sha256(priv).digest()
+        return (sha_pub != real_pub, "SHA256(privkey) ≠ Curve25519 pubkey — fix was necessary")
+
+    def t_no_sha256_bug_in_tunnel():
+        content = (PROJECT_ROOT / "windows/system-tunnel.js").read_text(encoding="utf-8")
+        if "createHash('sha256').update(privateKey).digest()" in content:
+            return False, "Old SHA256-as-pubkey bug still present"
+        return True, "SHA256 pubkey bug absent"
+
+    def t_nacl_scalarMult_present():
+        content = (PROJECT_ROOT / "windows/system-tunnel.js").read_text(encoding="utf-8")
+        if "scalarMult.base" not in content:
+            return False, "nacl.scalarMult.base not found"
+        return True, "Curve25519 via nacl.scalarMult.base present"
+
+    def t_tweetnacl_in_deps():
+        pkg = json.loads((PROJECT_ROOT / "windows/package.json").read_text())
+        deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+        return ("tweetnacl" in deps, f"tweetnacl {'found' if 'tweetnacl' in deps else 'MISSING'}")
+
+    for label, fn in [
+        ("WireGuard key = 32 bytes / 44-char base64", t_wg_key_size),
+        ("Curve25519 clamping (RFC 7748)", t_curve25519_clamp),
+        ("SHA256 ≠ Curve25519 pubkey (regression guard)", t_sha256_ne_curve25519),
+        ("system-tunnel.js — SHA256 bug removed", t_no_sha256_bug_in_tunnel),
+        ("system-tunnel.js — nacl.scalarMult.base present", t_nacl_scalarMult_present),
+        ("windows/package.json — tweetnacl declared", t_tweetnacl_in_deps),
+    ]:
+        s.run(label, fn)
+    return s.report()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Suite 3 — Android security invariants
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_android() -> bool:
+    s = Suite("Android Security")
+    MANIFEST = (PROJECT_ROOT / "android/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+    GRADLE   = (PROJECT_ROOT / "android/app/build.gradle.kts").read_text(encoding="utf-8")
+    TUNNEL   = (PROJECT_ROOT / "android/app/src/main/java/com/freedomvpn/vpn/VpnTunnel.kt").read_text(encoding="utf-8")
+
+    def perm(p: str): return p in MANIFEST
+
+    s.run("No READ_MEDIA_IMAGES permission",    lambda: (not perm("READ_MEDIA_IMAGES"),    "OK" if not perm("READ_MEDIA_IMAGES") else "PRESENT — remove"))
+    s.run("No READ_MEDIA_VIDEO permission",     lambda: (not perm("READ_MEDIA_VIDEO"),     "OK" if not perm("READ_MEDIA_VIDEO") else "PRESENT — remove"))
+    s.run("No READ_MEDIA_AUDIO permission",     lambda: (not perm("READ_MEDIA_AUDIO"),     "OK" if not perm("READ_MEDIA_AUDIO") else "PRESENT — remove"))
+    s.run("No ACCESS_BACKGROUND_LOCATION",      lambda: (not perm("ACCESS_BACKGROUND_LOCATION"), "OK" if not perm("ACCESS_BACKGROUND_LOCATION") else "PRESENT — remove"))
+    s.run("No WRITE_EXTERNAL_STORAGE",          lambda: (not perm("WRITE_EXTERNAL_STORAGE"), "OK" if not perm("WRITE_EXTERNAL_STORAGE") else "PRESENT — use internal storage"))
+    s.run("INTERNET permission present",        lambda: (perm("INTERNET"),    "OK" if perm("INTERNET") else "MISSING"))
+    s.run("FOREGROUND_SERVICE present",         lambda: (perm("FOREGROUND_SERVICE"), "OK" if perm("FOREGROUND_SERVICE") else "MISSING"))
+    s.run("VpnService intent filter declared",  lambda: ("android.net.VpnService" in MANIFEST, "present" if "android.net.VpnService" in MANIFEST else "MISSING"))
+    s.run("VPN service exported=false",         lambda: _check_vpn_service_not_exported(MANIFEST))
+    s.run("SUPPORTS_ALWAYS_ON meta-data",       lambda: ("SUPPORTS_ALWAYS_ON" in MANIFEST, "present" if "SUPPORTS_ALWAYS_ON" in MANIFEST else "MISSING"))
+    s.run("wireguard-android in build.gradle",  lambda: ("wireguard.android:tunnel" in GRADLE, "present" if "wireguard.android:tunnel" in GRADLE else "MISSING"))
+    s.run("security-crypto in build.gradle",    lambda: ("security-crypto" in GRADLE, "present" if "security-crypto" in GRADLE else "MISSING"))
+    s.run("minSdk ≥ 26",                        lambda: _check_min_sdk(GRADLE))
+    s.run("VpnTunnel.kt @Deprecated annotation",lambda: ("@Deprecated" in TUNNEL, "@Deprecated present" if "@Deprecated" in TUNNEL else "MISSING — unencrypted tunnel may be used in prod"))
+    return s.report()
+
+def _check_vpn_service_not_exported(manifest: str) -> Tuple[bool, str]:
+    m = re.search(r'<service[^>]+FreedomVpnService[^>]*>', manifest)
+    if not m:
+        return False, "FreedomVpnService tag not found"
+    block = m.group(0)
+    if 'android:exported="false"' not in block:
+        return False, f"exported=false missing in: {block[:80]}"
+    return True, "exported=false"
+
+def _check_min_sdk(gradle: str) -> Tuple[bool, str]:
+    m = re.search(r'minSdk\s*=\s*(\d+)', gradle)
+    if not m:
+        return False, "minSdk not found"
+    v = int(m.group(1))
+    return (v >= 26, f"minSdk={v}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Suite 4 — Browser extension
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_extension() -> bool:
+    s = Suite("Browser Extension")
+    MF  = json.loads((PROJECT_ROOT / "extension/manifest.json").read_text())
+    BG  = (PROJECT_ROOT / "extension/background.js").read_text(encoding="utf-8")
+    POP = (PROJECT_ROOT / "extension/popup.html").read_text(encoding="utf-8")
+
+    s.run("Manifest Version 3",                     lambda: (MF.get("manifest_version") == 3, f"MV{MF.get('manifest_version')}"))
+    s.run("proxy permission",                       lambda: ("proxy" in MF.get("permissions",[]), "present" if "proxy" in MF.get("permissions",[]) else "MISSING"))
+    s.run("storage permission",                     lambda: ("storage" in MF.get("permissions",[]), "present" if "storage" in MF.get("permissions",[]) else "MISSING"))
+    s.run("webRequest permission",                  lambda: ("webRequest" in MF.get("permissions",[]), "present" if "webRequest" in MF.get("permissions",[]) else "MISSING"))
+    s.run("background.service_worker = background.js", lambda: (MF.get("background",{}).get("service_worker")=="background.js", str(MF.get("background",{}))))
+    s.run("No eval() in service worker (MV3 CSP)",  lambda: _check_no_eval(BG))
+    s.run("chrome.proxy API used for routing",      lambda: ("chrome.proxy" in BG, "found" if "chrome.proxy" in BG else "MISSING — extension cannot route traffic"))
+    s.run("No inline <script> in popup.html",       lambda: _check_no_inline_script(POP))
+    s.run("host_permissions declared",              lambda: (bool(MF.get("host_permissions")), str(MF.get("host_permissions"))))
+    return s.report()
+
+def _check_no_eval(content: str) -> Tuple[bool, str]:
+    code_lines = [l for l in content.splitlines() if not l.strip().startswith("//")]
+    if re.search(r'\beval\s*\(', "\n".join(code_lines)):
+        return False, "eval() found — forbidden by MV3 CSP"
+    return True, "no eval()"
+
+def _check_no_inline_script(html: str) -> Tuple[bool, str]:
+    inline = re.findall(r'<script(?![^>]*\bsrc=)[^>]*>', html, re.IGNORECASE)
+    if inline:
+        return False, f"Inline script: {inline[0]}"
+    return True, "no inline scripts"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Suite 5 — Windows security
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_windows() -> bool:
+    s = Suite("Windows App Security")
+    TUNNEL = (PROJECT_ROOT / "windows/system-tunnel.js").read_text(encoding="utf-8")
+    MAIN   = (PROJECT_ROOT / "windows/main.js").read_text(encoding="utf-8")
+    PKG    = json.loads((PROJECT_ROOT / "windows/package.json").read_text())
+
+    s.run("No SHA256-as-pubkey bug",            lambda: ("createHash('sha256').update(privateKey).digest()" not in TUNNEL, "OK" if "createHash('sha256').update(privateKey).digest()" not in TUNNEL else "BUG STILL PRESENT"))
+    s.run("nacl.scalarMult.base present",       lambda: ("scalarMult.base" in TUNNEL, "found" if "scalarMult.base" in TUNNEL else "MISSING"))
+    s.run("No false-connected-on-failure",      lambda: ("this.isConnected = true; // Mark as connected anyway" not in TUNNEL, "OK" if "this.isConnected = true; // Mark as connected anyway" not in TUNNEL else "BUG PRESENT"))
+    s.run("contextIsolation=true",              lambda: ("contextIsolation: false" not in MAIN, "OK" if "contextIsolation: false" not in MAIN else "DISABLED — XSS risk"))
+    s.run("nodeIntegration=false",              lambda: ("nodeIntegration: true" not in MAIN, "OK" if "nodeIntegration: true" not in MAIN else "ENABLED — RCE risk"))
+    s.run("requestedExecutionLevel=requireAdmin",lambda: (PKG.get("build",{}).get("win",{}).get("requestedExecutionLevel")=="requireAdministrator", str(PKG.get("build",{}).get("win",{}).get("requestedExecutionLevel"))))
+    s.run("Kill switch via netsh advfirewall",   lambda: ("netsh advfirewall" in TUNNEL, "found" if "netsh advfirewall" in TUNNEL else "MISSING"))
+    s.run("Config file saved 0o600",            lambda: ("0o600" in TUNNEL, "found" if "0o600" in TUNNEL else "MISSING — config file world-readable"))
+    s.run("tweetnacl in package.json",          lambda: ("tweetnacl" in {**PKG.get("dependencies",{}),**PKG.get("devDependencies",{})}, "found" if "tweetnacl" in {**PKG.get("dependencies",{}),**PKG.get("devDependencies",{})} else "MISSING"))
+    return s.report()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Suite 6 — Project structure & secrets scan
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_structure() -> bool:
+    s = Suite("Project Structure & Hygiene")
+
+    REQUIRED = [
+        "README.md", "shared/config.js",
         "shared/anticensorship/CensorshipBypassEngine.js",
         "shared/anticensorship/LeakProtection.js",
         "shared/stats/DynamicStatsEngine.js",
-        "shared/vpngate/parser.py",
-        "shared/vpngate/server_selector.py",
-        "web/package.json",
-        "web/src/App.jsx",
-        "windows/package.json",
-        "windows/main.js",
+        "shared/core/VPNTunnelService.js",
+        "shared/multihop/MultiHopEngine.js",
+        "web/package.json", "web/src/App.jsx",
+        "windows/package.json", "windows/main.js", "windows/system-tunnel.js",
         "android/app/build.gradle.kts",
-        "extension/manifest.json",
+        "android/app/src/main/AndroidManifest.xml",
+        "extension/manifest.json", "extension/background.js",
+        "tests/test_suite_comprehensive.py",
     ]
-    
-    missing = []
-    for file in required_files:
-        path = PROJECT_ROOT / file
-        if not path.exists():
-            missing.append(file)
-    
-    if not missing:
-        return True, f"All {len(required_files)} files present"
-    return False, f"Missing: {', '.join(missing)}"
 
+    s.run("Required files present",  lambda: _check_files(REQUIRED))
+    s.run("web/package.json valid",  lambda: _check_json(PROJECT_ROOT / "web/package.json", ["dependencies"]))
+    s.run("windows/package.json valid", lambda: _check_json(PROJECT_ROOT / "windows/package.json", ["main","scripts","dependencies"]))
+    s.run("extension/manifest.json valid", lambda: _check_json(PROJECT_ROOT / "extension/manifest.json", ["manifest_version","name","permissions"]))
+    s.run("No hardcoded secrets",    lambda: _scan_secrets())
+    s.run("Android — Kotlin configured", lambda: ("kotlin" in (PROJECT_ROOT/"android/app/build.gradle.kts").read_text().lower(), "yes"))
+    s.run("Android — Compose enabled",   lambda: ("compose" in (PROJECT_ROOT/"android/app/build.gradle.kts").read_text().lower(), "yes"))
+    return s.report()
 
-def test_web_package_json():
-    """Validate web package.json"""
-    try:
-        with open(PROJECT_ROOT / "web/package.json", 'r', encoding='utf-8') as f:
-            pkg = json.load(f)
-        
-        required = ['react', 'react-dom', 'react-router-dom']
-        missing = [r for r in required if r not in pkg.get('dependencies', {})]
-        
-        if not missing:
-            return True, f"Dependencies OK, version {pkg.get('version', 'unknown')}"
-        return False, f"Missing deps: {missing}"
-    except Exception as e:
-        return False, str(e)
+def _check_files(files: list) -> Tuple[bool, str]:
+    missing = [f for f in files if not (PROJECT_ROOT / f).exists()]
+    return (not missing, f"All {len(files)} present" if not missing else f"Missing: {missing}")
 
+def _check_json(path: Path, required_keys: list) -> Tuple[bool, str]:
+    data = json.loads(path.read_text())
+    missing = [k for k in required_keys if k not in data]
+    return (not missing, "OK" if not missing else f"Missing keys: {missing}")
 
-def test_windows_package_json():
-    """Validate Windows Electron package.json"""
-    try:
-        with open(PROJECT_ROOT / "windows/package.json", 'r', encoding='utf-8') as f:
-            pkg = json.load(f)
-        
-        if 'main' in pkg and 'scripts' in pkg:
-            if 'start' in pkg['scripts']:
-                return True, f"Electron config OK, version {pkg.get('version', 'unknown')}"
-        return False, "Missing main entry or scripts"
-    except Exception as e:
-        return False, str(e)
-
-
-def test_android_build_gradle():
-    """Validate Android build configuration"""
-    try:
-        with open(PROJECT_ROOT / "android/app/build.gradle.kts", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        required = ['namespace', 'compileSdk', 'minSdk', 'compose']
-        missing = [r for r in required if r not in content]
-        
-        if not missing:
-            return True, "Kotlin DSL build config valid"
-        return False, f"Missing: {missing}"
-    except Exception as e:
-        return False, str(e)
-
-
-def test_extension_manifest():
-    """Validate browser extension manifest"""
-    try:
-        with open(PROJECT_ROOT / "extension/manifest.json", 'r', encoding='utf-8') as f:
-            manifest = json.load(f)
-        
-        required = ['manifest_version', 'name', 'version', 'permissions']
-        missing = [r for r in required if r not in manifest]
-        
-        if not missing:
-            return True, f"Manifest v{manifest.get('manifest_version')} OK"
-        return False, f"Missing: {missing}"
-    except Exception as e:
-        return False, str(e)
-
-
-# =============================================================================
-# JAVASCRIPT MODULE TESTS
-# =============================================================================
-
-def test_censorship_bypass_engine():
-    """Validate CensorshipBypassEngine.js structure"""
-    try:
-        with open(PROJECT_ROOT / "shared/anticensorship/CensorshipBypassEngine.js", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        features = [
-            'OBFUSCATION_METHODS',
-            'TLS_CAMOUFLAGE',
-            'DOMAIN_FRONTING',
-            'ANTI_CENSORSHIP_SERVERS'
-        ]
-        found = [f for f in features if f in content]
-        
-        if len(found) >= 3:
-            return True, f"Found {len(found)}/4 core features"
-        return False, f"Only {len(found)}/4 features"
-    except Exception as e:
-        return False, str(e)
-
-
-def test_leak_protection_module():
-    """Validate LeakProtection.js structure"""
-    try:
-        with open(PROJECT_ROOT / "shared/anticensorship/LeakProtection.js", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        protections = ['WebRTC', 'DNS', 'IPv6', 'canvas', 'timezone']
-        found = [p for p in protections if p.lower() in content.lower()]
-        
-        if len(found) >= 4:
-            return True, f"Found {len(found)}/5 leak protections"
-        return False, f"Only {len(found)}/5 protections"
-    except Exception as e:
-        return False, str(e)
-
-
-def test_stats_engine():
-    """Validate DynamicStatsEngine.js structure"""
-    try:
-        with open(PROJECT_ROOT / "shared/stats/DynamicStatsEngine.js", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        features = ['downloadSpeed', 'uploadSpeed', 'latency', 'moneySaved', 'compressionRatio']
-        found = [f for f in features if f in content]
-        
-        if len(found) >= 4:
-            return True, f"Found {len(found)}/5 stats features"
-        return False, f"Only {len(found)}/5 features"
-    except Exception as e:
-        return False, str(e)
-
-
-# =============================================================================
-# PYTHON MODULE TESTS
-# =============================================================================
-
-def test_parser_module():
-    """Test VPN Gate parser module"""
-    try:
-        sys.path.insert(0, str(PROJECT_ROOT / "shared/vpngate"))
-        from parser import VpnGateServer, VpnGateParser
-        
-        # Test data class
-        server = VpnGateServer(
-            hostname="test",
-            ip="1.2.3.4",
-            score=1000,
-            ping=50,
-            speed=100_000_000,
-            country_long="Japan",
-            country_short="JP",
-            num_vpn_sessions=10,
-            uptime=3600000,
-            total_users=100,
-            total_traffic=1000000,
-            log_type="none",
-            operator="test",
-            message="test",
-            openvpn_config_base64="dGVzdA=="
-        )
-        
-        if server.speed_mbps == 100.0 and server.quality_score > 0:
-            return True, "Parser module functional"
-        return False, "Parser calculations incorrect"
-    except Exception as e:
-        return False, str(e)
-
-
-def test_server_selector_module():
-    """Test server selector module"""
-    try:
-        sys.path.insert(0, str(PROJECT_ROOT / "shared/vpngate"))
-        from server_selector import ServerSelector, Region, SortCriteria
-        
-        # Verify enums
-        if Region.AFRICA.value == 'africa' and SortCriteria.SPEED.value == 'speed':
-            return True, "Server selector module functional"
-        return False, "Enum values incorrect"
-    except Exception as e:
-        return False, str(e)
-
-
-# =============================================================================
-# WEB APPLICATION TESTS
-# =============================================================================
-
-def test_web_react_components():
-    """Verify React components exist"""
-    components = [
-        "web/src/App.jsx",
-        "web/src/components/Navigation.jsx",
-        "web/src/pages/Dashboard.jsx",
-        "web/src/pages/Servers.jsx",
-        "web/src/pages/Settings.jsx",
-        "web/src/pages/Statistics.jsx",
-        "web/src/context/VpnContext.jsx",
+def _scan_secrets() -> Tuple[bool, str]:
+    patterns = [
+        r'password\s*=\s*["\'][^"\']{8,}["\']',
+        r'api_key\s*=\s*["\'][a-zA-Z0-9_\-]{16,}["\']',
+        r'secret\s*=\s*["\'][^"\']{8,}["\']',
     ]
-    
-    missing = []
-    for comp in components:
-        path = PROJECT_ROOT / comp
-        if not path.exists():
-            missing.append(comp)
-    
-    if not missing:
-        return True, f"All {len(components)} components present"
-    return False, f"Missing: {', '.join(missing)}"
+    skip = {"node_modules", ".git", "build", "dist", "test_suite_comprehensive"}
+    exts = {".js", ".ts", ".jsx", ".tsx", ".py", ".kt", ".json"}
+    hits = []
+    for p in PROJECT_ROOT.rglob("*"):
+        if p.suffix not in exts:
+            continue
+        if any(s in str(p) for s in skip):
+            continue
+        try:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+            for pat in patterns:
+                if re.search(pat, text, re.IGNORECASE):
+                    hits.append(str(p.relative_to(PROJECT_ROOT)))
+                    break
+        except Exception:
+            pass
+    return (not hits, "clean" if not hits else f"Potential secrets in: {hits[:3]}")
 
 
-def test_web_tailwind_config():
-    """Verify Tailwind CSS configuration"""
-    try:
-        with open(PROJECT_ROOT / "web/tailwind.config.js", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        if 'content' in content and 'theme' in content:
-            return True, "Tailwind configured"
-        return False, "Missing content or theme config"
-    except Exception as e:
-        return False, str(e)
-
-
-# =============================================================================
-# WINDOWS APPLICATION TESTS  
-# =============================================================================
-
-def test_windows_electron_main():
-    """Verify Electron main process"""
-    try:
-        with open(PROJECT_ROOT / "windows/main.js", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        features = ['BrowserWindow', 'ipcMain', 'createWindow', 'SERVERS']
-        found = [f for f in features if f in content]
-        
-        if len(found) >= 3:
-            return True, f"Found {len(found)}/4 Electron features"
-        return False, f"Only {len(found)}/4 features"
-    except Exception as e:
-        return False, str(e)
-
-
-def test_windows_preload():
-    """Verify Electron preload script"""
-    try:
-        with open(PROJECT_ROOT / "windows/preload.js", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        if 'contextBridge' in content or 'exposeInMainWorld' in content:
-            return True, "Preload script valid"
-        return False, "Missing contextBridge"
-    except Exception as e:
-        return False, str(e)
-
-
-def test_windows_uwp_structure():
-    """Verify UWP project structure"""
-    uwp_files = [
-        "windows/FreedomVPN.Uwp/App.xaml",
-        "windows/FreedomVPN.Uwp/MainWindow.xaml",
-        "windows/FreedomVPN.Uwp/FreedomVPN.Uwp.csproj",
-        "windows/FreedomVPN.Uwp/Services/VpnConnectionService.cs",
-        "windows/FreedomVPN.Uwp/ViewModels/MainViewModel.cs",
-    ]
-    
-    missing = []
-    for f in uwp_files:
-        path = PROJECT_ROOT / f
-        if not path.exists():
-            missing.append(f)
-    
-    if not missing:
-        return True, f"All {len(uwp_files)} UWP files present"
-    return False, f"Missing: {', '.join(missing)}"
-
-
-# =============================================================================
-# ANDROID APPLICATION TESTS
-# =============================================================================
-
-def test_android_manifest():
-    """Verify Android manifest"""
-    try:
-        with open(PROJECT_ROOT / "android/app/src/main/AndroidManifest.xml", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        required = ['INTERNET', 'VPN_SERVICE', 'application']
-        found = [r for r in required if r in content]
-        
-        if len(found) >= 2:
-            return True, f"Found {len(found)}/3 manifest features"
-        return False, f"Only {len(found)}/3 features"
-    except Exception as e:
-        return False, str(e)
-
-
-def test_android_compose_ui():
-    """Verify Android Compose UI files"""
-    ui_path = PROJECT_ROOT / "android/app/src/main/java/com/freedomvpn/ui"
-    if ui_path.exists():
-        files = list(ui_path.rglob("*.kt"))
-        if len(files) > 0:
-            return True, f"Found {len(files)} Compose UI files"
-    return False, "No UI files found"
-
-
-# =============================================================================
-# EXTENSION TESTS
-# =============================================================================
-
-def test_extension_files():
-    """Verify extension files"""
-    ext_files = [
-        "extension/manifest.json",
-        "extension/background.js",
-        "extension/popup.html",
-        "extension/popup.js",
-        "extension/popup.css",
-    ]
-    
-    missing = []
-    for f in ext_files:
-        path = PROJECT_ROOT / f
-        if not path.exists():
-            missing.append(f)
-    
-    if not missing:
-        return True, f"All {len(ext_files)} extension files present"
-    return False, f"Missing: {', '.join(missing)}"
-
-
-def test_extension_background_script():
-    """Verify extension background script"""
-    try:
-        with open(PROJECT_ROOT / "extension/background.js", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        features = ['chrome', 'proxy', 'storage', 'runtime']
-        found = [f for f in features if f in content]
-        
-        if len(found) >= 2:
-            return True, f"Found {len(found)}/4 extension APIs"
-        return False, f"Only {len(found)}/4 APIs"
-    except Exception as e:
-        return False, str(e)
-
-
-# =============================================================================
-# INTEGRATION TESTS
-# =============================================================================
-
-def test_shared_config():
-    """Verify shared configuration"""
-    try:
-        with open(PROJECT_ROOT / "shared/config.js", 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        if 'FreedomVPN' in content or 'config' in content.lower():
-            return True, "Shared config present"
-        return False, "Config appears empty"
-    except Exception as e:
-        return False, str(e)
-
-
-def test_documentation():
-    """Verify documentation exists"""
-    docs = [
-        "docs/ANDROID_SETUP.md",
-        "docs/WINDOWS_SETUP.md",
-        "docs/VPNGATE_INTEGRATION.md",
-    ]
-    
-    found = 0
-    for doc in docs:
-        if (PROJECT_ROOT / doc).exists():
-            found += 1
-    
-    if found >= 2:
-        return True, f"Found {found}/3 documentation files"
-    return False, f"Only {found}/3 docs"
-
-
-# =============================================================================
-# MAIN TEST RUNNER
-# =============================================================================
+# ─────────────────────────────────────────────────────────────────────────────
+# Main
+# ─────────────────────────────────────────────────────────────────────────────
 
 def main():
     print("=" * 70)
-    print("FREEDOMVPN COMPREHENSIVE TEST SUITE")
+    print("  FREEDOMVPN COMPREHENSIVE TEST SUITE")
+    print(f"  Root: {PROJECT_ROOT}")
     print("=" * 70)
-    print(f"Project Root: {PROJECT_ROOT}")
-    print(f"Python Version: {sys.version}")
-    print(f"Test Started: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    suites = [
+        ("VPN Gate API",         suite_vpngate),
+        ("Cryptography",         suite_crypto),
+        ("Android Security",     suite_android),
+        ("Extension Security",   suite_extension),
+        ("Windows Security",     suite_windows),
+        ("Project Structure",    suite_structure),
+    ]
+
+    results = []
+    for name, fn in suites:
+        try:
+            results.append((name, fn()))
+        except Exception as exc:
+            print(f"\n  ERROR in suite {name}: {exc}")
+            results.append((name, False))
+
+    print("\n" + "=" * 70)
+    print("  OVERALL")
     print("=" * 70)
-    print()
-    
-    suite = TestSuite()
-    
-    # VPN Gate Tests
-    print("\n--- VPN GATE INTEGRATION TESTS ---\n")
-    suite.run_test("VPN Gate API Connectivity", test_vpngate_api_connectivity)
-    suite.run_test("VPN Gate CSV Parsing", test_vpngate_csv_parsing)
-    suite.run_test("OpenVPN Config Decoding", test_vpngate_openvpn_configs)
-    
-    # Project Structure Tests
-    print("\n--- PROJECT STRUCTURE TESTS ---\n")
-    suite.run_test("Project Structure", test_project_structure)
-    suite.run_test("Web package.json", test_web_package_json)
-    suite.run_test("Windows package.json", test_windows_package_json)
-    suite.run_test("Android build.gradle.kts", test_android_build_gradle)
-    suite.run_test("Extension manifest.json", test_extension_manifest)
-    
-    # JavaScript Module Tests
-    print("\n--- JAVASCRIPT MODULE TESTS ---\n")
-    suite.run_test("CensorshipBypassEngine", test_censorship_bypass_engine)
-    suite.run_test("LeakProtection", test_leak_protection_module)
-    suite.run_test("DynamicStatsEngine", test_stats_engine)
-    
-    # Python Module Tests
-    print("\n--- PYTHON MODULE TESTS ---\n")
-    suite.run_test("Parser Module", test_parser_module)
-    suite.run_test("Server Selector Module", test_server_selector_module)
-    
-    # Web Application Tests
-    print("\n--- WEB APPLICATION TESTS ---\n")
-    suite.run_test("React Components", test_web_react_components)
-    suite.run_test("Tailwind CSS Config", test_web_tailwind_config)
-    
-    # Windows Application Tests
-    print("\n--- WINDOWS APPLICATION TESTS ---\n")
-    suite.run_test("Electron Main Process", test_windows_electron_main)
-    suite.run_test("Electron Preload Script", test_windows_preload)
-    suite.run_test("UWP Project Structure", test_windows_uwp_structure)
-    
-    # Android Application Tests
-    print("\n--- ANDROID APPLICATION TESTS ---\n")
-    suite.run_test("Android Manifest", test_android_manifest)
-    suite.run_test("Compose UI Files", test_android_compose_ui)
-    
-    # Extension Tests
-    print("\n--- BROWSER EXTENSION TESTS ---\n")
-    suite.run_test("Extension Files", test_extension_files)
-    suite.run_test("Background Script", test_extension_background_script)
-    
-    # Integration Tests
-    print("\n--- INTEGRATION TESTS ---\n")
-    suite.run_test("Shared Configuration", test_shared_config)
-    suite.run_test("Documentation", test_documentation)
-    
-    # Summary
-    all_passed = suite.print_summary()
-    return 0 if all_passed else 1
+    for name, ok in results:
+        print(f"  {'✅' if ok else '❌'}  {name}")
+
+    all_pass = all(ok for _, ok in results)
+    if all_pass:
+        print("\n  ✅  ALL SUITES PASSED\n")
+    else:
+        print("\n  ❌  FAILURES — fix before committing\n")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    main()

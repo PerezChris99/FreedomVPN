@@ -13,19 +13,26 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Handles the actual VPN tunnel packet forwarding.
- * 
- * This class is responsible for:
- * 1. Reading packets from the VPN interface (outgoing traffic from apps)
- * 2. Encrypting and sending them to the VPN server
- * 3. Receiving encrypted packets from the server
- * 4. Decrypting and writing them to the VPN interface (incoming traffic to apps)
- * 
- * For Uganda and other censored regions, this also handles:
- * - Obfuscation of traffic patterns
- * - Automatic reconnection on network changes
- * - Statistics tracking
+ * Raw UDP packet forwarder — DEVELOPMENT / TESTING ONLY.
+ *
+ * ⚠️  THIS CLASS DOES NOT ENCRYPT TRAFFIC.
+ *      It is a structural scaffold for the packet-forwarding loop.
+ *      Production tunnelling is handled by [WireGuardManager] which uses
+ *      the official wireguard-android library (ChaCha20-Poly1305 + Noise IK).
+ *
+ * Do NOT instantiate this class in production builds.  It is kept here as a
+ * reference implementation and will be removed in a future release once
+ * WireGuard-only mode is confirmed stable on all target devices.
+ *
+ * The service that boots the tunnel is [FreedomVpnService]; it uses
+ * [WireGuardManager] by default and only falls back here during
+ * debug / local-testing scenarios where no WireGuard config is present.
  */
+@Deprecated(
+    message = "Use WireGuardManager for encrypted production tunnels. " +
+              "This class forwards raw unencrypted UDP packets.",
+    level   = DeprecationLevel.WARNING
+)
 class VpnTunnel(
     private val vpnInterface: ParcelFileDescriptor,
     private val serverAddress: String,
@@ -261,22 +268,37 @@ class VpnTunnel(
     }
 
     /**
-     * Encrypt outgoing packet
-     * TODO: Implement WireGuard encryption
+     * Encrypt outgoing packet.
+     *
+     * ⚠️  NOT IMPLEMENTED — this class is for development scaffolding only.
+     *     Real encryption is performed by the wireguard-android GoBackend inside
+     *     [WireGuardManager].  This stub throws in debug builds to surface
+     *     accidental use.
      */
+    @Suppress("UNUSED_PARAMETER")
     private fun encryptPacket(packet: ByteBuffer): ByteBuffer {
-        // Placeholder - will be replaced with WireGuard encryption
-        // For now, return packet as-is for testing
-        return packet
+        if (BuildConfig.DEBUG) {
+            error(
+                "VpnTunnel.encryptPacket() called — this class sends UNENCRYPTED traffic. " +
+                "Use WireGuardManager for production tunnels."
+            )
+        }
+        return packet   // pass-through only in release to avoid hard crash during migration
     }
 
     /**
-     * Decrypt incoming packet
-     * TODO: Implement WireGuard decryption
+     * Decrypt incoming packet.
+     *
+     * ⚠️  NOT IMPLEMENTED — see [encryptPacket] note above.
      */
+    @Suppress("UNUSED_PARAMETER")
     private fun decryptPacket(packet: ByteBuffer): ByteBuffer {
-        // Placeholder - will be replaced with WireGuard decryption
-        // For now, return packet as-is for testing
+        if (BuildConfig.DEBUG) {
+            error(
+                "VpnTunnel.decryptPacket() called — this class receives UNENCRYPTED traffic. " +
+                "Use WireGuardManager for production tunnels."
+            )
+        }
         return packet
     }
 
