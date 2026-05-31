@@ -737,6 +737,203 @@ def suite_warp_integration() -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Phase 7a: Android — Certificate Pinning
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_android_cert_pinning() -> bool:
+    sac = (PROJECT_ROOT / "android" / "app" / "src" / "main" / "java"
+           / "com" / "freedomvpn" / "vpn" / "server" / "ServerApiClient.kt")
+
+    s = Suite("Android — Certificate Pinning")
+
+    def _t(check_fn):
+        if not sac.exists():
+            return False, "ServerApiClient.kt missing"
+        return check_fn(sac.read_text(encoding="utf-8"))
+
+    s.run("CertificatePinner import present", lambda: _t(
+        lambda txt: ("import okhttp3.CertificatePinner" in txt, "imported")
+    ))
+    s.run("CERT_PINS constant defined", lambda: _t(
+        lambda txt: ("CERT_PINS" in txt, "pins array present")
+    ))
+    s.run("Let's Encrypt ISRG Root X1 backup pin present", lambda: _t(
+        lambda txt: ("ISRG" in txt or "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=" in txt, "LE root pin")
+    ))
+    s.run("CertificatePinner applied to OkHttpClient builder", lambda: _t(
+        lambda txt: ("certificatePinner" in txt, "pinning applied")
+    ))
+    s.run("Pins applied per hostname (not wildcard bypass)", lambda: _t(
+        lambda txt: ("add(hostname" in txt or 'add(' in txt, "per-host pinning")
+    ))
+    s.run("HTTPS guard still present alongside pinning", lambda: _t(
+        lambda txt: ("startsWith(\"https://\")" in txt or "startsWith('https://')" in txt, "HTTPS guard")
+    ))
+
+    return s.report()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 7b: Server — Audit Log + Peer Expiry
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_server_audit_expiry() -> bool:
+    db_js    = PROJECT_ROOT / "server" / "api" / "src" / "db.js"
+    peers_js = PROJECT_ROOT / "server" / "api" / "src" / "routes" / "peers.js"
+    index_js = PROJECT_ROOT / "server" / "api" / "src" / "index.js"
+
+    s = Suite("Server — Audit Log + Peer Expiry")
+
+    def _t(path, check_fn):
+        if not path.exists():
+            return False, f"{path.name} missing"
+        return check_fn(path.read_text(encoding="utf-8"))
+
+    s.run("db.js — audit_log table created", lambda: _t(
+        db_js, lambda txt: ("CREATE TABLE IF NOT EXISTS audit_log" in txt, "table defined")
+    ))
+    s.run("db.js — audit_log has event + client_ip columns", lambda: _t(
+        db_js, lambda txt: ("event" in txt and "client_ip" in txt, "columns present")
+    ))
+    s.run("db.js — auditLog() helper exported", lambda: _t(
+        db_js, lambda txt: ("auditLog" in txt and "db.auditLog" in txt, "helper exported")
+    ))
+    s.run("db.js — IP anonymised to /24 before storage", lambda: _t(
+        db_js, lambda txt: ("anonymiseIP" in txt and "/24" in txt, "IP anonymisation")
+    ))
+    s.run("peers.js — register event logged", lambda: _t(
+        peers_js, lambda txt: ("auditLog('register'" in txt, "register event logged")
+    ))
+    s.run("peers.js — reregister event logged", lambda: _t(
+        peers_js, lambda txt: ("auditLog('reregister'" in txt, "reregister event logged")
+    ))
+    s.run("peers.js — delete event logged", lambda: _t(
+        peers_js, lambda txt: ("auditLog('delete'" in txt, "delete event logged")
+    ))
+    s.run("peers.js — POST /expire route (admin-only expiry trigger)", lambda: _t(
+        peers_js, lambda txt: ("router.post('/expire'" in txt, "expire route present")
+    ))
+    s.run("peers.js — expire event logged", lambda: _t(
+        peers_js, lambda txt: ("auditLog('expire'" in txt, "expire event logged")
+    ))
+    s.run("peers.js — GET /audit route (admin-only log read)", lambda: _t(
+        peers_js, lambda txt: ("router.get('/audit'" in txt, "audit read route present")
+    ))
+    s.run("index.js — scheduled expiry with setInterval", lambda: _t(
+        index_js, lambda txt: ("setInterval" in txt and "expireStale" in txt, "scheduler present")
+    ))
+    s.run("index.js — expiry runs on startup", lambda: _t(
+        index_js, lambda txt: ("expireStale()" in txt, "startup expiry check")
+    ))
+
+    return s.report()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 7c: Windows — DPAPI Key Encryption
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_windows_dpapi() -> bool:
+    tunnel_js = PROJECT_ROOT / "windows" / "system-tunnel.js"
+
+    s = Suite("Windows — DPAPI Key Encryption")
+
+    def _t(check_fn):
+        if not tunnel_js.exists():
+            return False, "system-tunnel.js missing"
+        return check_fn(tunnel_js.read_text(encoding="utf-8"))
+
+    s.run("encryptDPAPI() static method defined", lambda: _t(
+        lambda txt: ("static encryptDPAPI" in txt, "encrypt method")
+    ))
+    s.run("decryptDPAPI() static method defined", lambda: _t(
+        lambda txt: ("static decryptDPAPI" in txt, "decrypt method")
+    ))
+    s.run("Uses ProtectedData.Protect (DPAPI)", lambda: _t(
+        lambda txt: ("ProtectedData]::Protect" in txt, "DPAPI Protect call")
+    ))
+    s.run("Uses ProtectedData.Unprotect (DPAPI)", lambda: _t(
+        lambda txt: ("ProtectedData]::Unprotect" in txt, "DPAPI Unprotect call")
+    ))
+    s.run("CurrentUser scope (not LocalMachine)", lambda: _t(
+        lambda txt: ("CurrentUser" in txt, "user-scoped encryption")
+    ))
+    s.run("Non-Windows dev fallback present", lambda: _t(
+        lambda txt: ("process.platform !== 'win32'" in txt, "cross-platform fallback")
+    ))
+    s.run("wg_private_key encrypted before store.set", lambda: _t(
+        lambda txt: ("encryptDPAPI" in txt and "wg_private_key" in txt, "key encrypted at rest")
+    ))
+    s.run("wg_private_key decrypted via decryptDPAPI on load", lambda: _t(
+        lambda txt: ("decryptDPAPI" in txt and "wg_private_key" in txt, "key decrypted on load")
+    ))
+    s.run("warp_private_key encrypted before store.set", lambda: _t(
+        lambda txt: ("encryptDPAPI" in txt and "warp_private_key" in txt, "WARP key encrypted")
+    ))
+    s.run("DPAPI failure triggers key regeneration (not crash)", lambda: _t(
+        lambda txt: ("DPAPI decrypt failed" in txt and "regenerating" in txt, "graceful recovery")
+    ))
+
+    return s.report()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 7d: Extension — CSP Hardening
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_extension_csp() -> bool:
+    manifest = PROJECT_ROOT / "extension" / "manifest.json"
+
+    s = Suite("Extension — CSP Hardening")
+
+    def _t(check_fn):
+        if not manifest.exists():
+            return False, "manifest.json missing"
+        import json
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+        except Exception as e:
+            return False, f"manifest.json parse error: {e}"
+        return check_fn(data)
+
+    def _csp(data):
+        return (data.get("content_security_policy") or {}).get("extension_pages", "")
+
+    s.run("content_security_policy defined", lambda: _t(
+        lambda d: ("content_security_policy" in d, "CSP key present")
+    ))
+    s.run("extension_pages CSP present", lambda: _t(
+        lambda d: (bool(_csp(d)), "extension_pages CSP set")
+    ))
+    s.run("default-src restricted to 'self'", lambda: _t(
+        lambda d: ("default-src 'self'" in _csp(d), "default-src 'self'")
+    ))
+    s.run("script-src restricted to 'self' (no unsafe-inline/eval)", lambda: _t(
+        lambda d: ("script-src 'self'" in _csp(d) and "unsafe" not in _csp(d), "no unsafe scripts")
+    ))
+    s.run("connect-src allows VPNGate API", lambda: _t(
+        lambda d: ("vpngate.net" in _csp(d), "VPNGate in connect-src")
+    ))
+    s.run("connect-src allows GeoNode proxy API", lambda: _t(
+        lambda d: ("geonode.com" in _csp(d), "GeoNode in connect-src")
+    ))
+    s.run("connect-src allows ProxyScrape API", lambda: _t(
+        lambda d: ("proxyscrape.com" in _csp(d), "ProxyScrape in connect-src")
+    ))
+    s.run("connect-src allows Cloudflare WARP API", lambda: _t(
+        lambda d: ("cloudflareclient.com" in _csp(d), "Cloudflare WARP in connect-src")
+    ))
+    s.run("object-src 'none' (no plugins)", lambda: _t(
+        lambda d: ("object-src 'none'" in _csp(d), "plugins blocked")
+    ))
+    s.run("frame-ancestors 'none' (no clickjacking)", lambda: _t(
+        lambda d: ("frame-ancestors 'none'" in _csp(d), "no framing")
+    ))
+
+    return s.report()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -759,6 +956,10 @@ def main():
         ("Extension — Server API",          suite_extension_server_api),
         ("Extension — Free Proxy Service",  suite_free_proxy_service),
         ("Windows — Cloudflare WARP",       suite_warp_integration),
+        ("Android — Certificate Pinning",   suite_android_cert_pinning),
+        ("Server — Audit Log + Expiry",     suite_server_audit_expiry),
+        ("Windows — DPAPI Encryption",      suite_windows_dpapi),
+        ("Extension — CSP Hardening",       suite_extension_csp),
     ]
 
     results = []
