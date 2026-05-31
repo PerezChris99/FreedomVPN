@@ -332,258 +332,107 @@ const FreedomVPNServerService = {
   },
 };
 
-// Enhanced server configuration with obfuscation support 
-    host: '197.232.170.50', 
-    port: 443, 
-    country: 'Kenya', 
-    city: 'Nairobi', 
-    flag: '🇰🇪',
-    obfuscation: ['tls', 'https'],
-    priority: 1,
-    isAfrican: true,
-    description: 'Closest to Uganda - best latency'
+// ============================================================
+// FREE PROXY SERVICE
+// Fetches fresh SOCKS5 proxies from public, free APIs.
+// Proxies are refreshed every 10 minutes so we always have
+// working IPs — no more hardcoded dead addresses.
+// ============================================================
+const FreeProxyService = {
+  proxies: [],
+  lastFetch: null,
+  cacheTimeout: 10 * 60 * 1000,
+  currentIndex: 0,
+
+  SOURCES: [
+    {
+      name: 'GeoNode',
+      url: 'https://proxylist.geonode.com/api/proxy-list?limit=100&page=1&sort_by=speed&sort_type=asc&protocols=socks5&filterUpTime=70',
+      parse(json) {
+        return (json.data || []).map(p => ({
+          id: `geonode-${p.ip}-${p.port}`,
+          host: p.ip,
+          port: parseInt(p.port),
+          scheme: 'socks5',
+          country: p.country || 'XX',
+          countryCode: (p.country || 'XX').slice(0, 2).toUpperCase(),
+          uptime: p.upTime || 0,
+          speed: p.speed || 9999,
+          priority: 1,
+          source: 'geonode',
+        })).filter(p => p.host && p.port && p.uptime >= 70);
+      },
+    },
+    {
+      name: 'ProxyScrape',
+      url: 'https://api.proxyscrape.com/v2/?request=getproxies&protocol=socks5&timeout=5000&country=all&ssl=all&anonymity=elite',
+      parse(text) {
+        return text.split('\n')
+          .map(l => l.trim()).filter(l => l && l.includes(':'))
+          .map((l, i) => {
+            const [host, portStr] = l.split(':');
+            return {
+              id: `proxyscrape-${i}`, host, port: parseInt(portStr),
+              scheme: 'socks5', country: 'XX', countryCode: 'XX',
+              uptime: 75, speed: 5000, priority: 2, source: 'proxyscrape',
+            };
+          }).filter(p => p.host && p.port > 0 && p.port < 65536).slice(0, 50);
+      },
+    },
+  ],
+
+  async fetchProxies(forceRefresh = false) {
+    if (!forceRefresh && this.proxies.length > 0 && this.lastFetch) {
+      if (Date.now() - this.lastFetch < this.cacheTimeout) return this.proxies;
+    }
+    const results = [];
+    for (const source of this.SOURCES) {
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 12000);
+        const resp = await fetch(source.url, { signal: controller.signal });
+        clearTimeout(t);
+        if (!resp.ok) continue;
+        const isJson = (resp.headers.get('content-type') || '').includes('json');
+        const parsed = source.parse(isJson ? await resp.json() : await resp.text());
+        results.push(...parsed);
+        console.log(`[FreeProxy] ${source.name}: ${parsed.length} proxies`);
+      } catch (e) {
+        console.warn(`[FreeProxy] ${source.name} failed:`, e.message);
+      }
+    }
+    if (results.length > 0) {
+      this.proxies = results.sort((a, b) => (b.uptime - a.uptime) || (a.speed - b.speed));
+      this.lastFetch = Date.now();
+      this.currentIndex = 0;
+      _updateDynamicServers(this.proxies);
+    }
+    console.log(`[FreeProxy] Total: ${this.proxies.length} proxies available`);
+    return this.proxies;
   },
-  'rw-kgl': { 
-    host: '41.186.255.100', 
-    port: 443, 
-    country: 'Rwanda', 
-    city: 'Kigali', 
-    flag: '🇷🇼',
-    obfuscation: ['tls'],
-    priority: 1,
-    isAfrican: true,
-    description: 'Direct neighbor - very low latency'
+
+  // Round-robin through the sorted proxy list
+  getNext() {
+    if (!this.proxies.length) return null;
+    const proxy = this.proxies[this.currentIndex % this.proxies.length];
+    this.currentIndex++;
+    return proxy;
   },
-  'tz-dar': { 
-    host: '197.250.65.20', 
-    port: 443, 
-    country: 'Tanzania', 
-    city: 'Dar es Salaam', 
-    flag: '🇹🇿',
-    obfuscation: ['tls'],
-    priority: 1,
-    isAfrican: true,
-    description: 'East African hub'
-  },
-  'za-jnb': { 
-    host: '196.38.180.10', 
-    port: 443, 
-    country: 'South Africa', 
-    city: 'Johannesburg', 
-    flag: '🇿🇦',
-    obfuscation: ['tls', 'websocket'],
-    priority: 1,
-    isAfrican: true,
-    description: 'Major African hub - reliable'
-  },
-  'eg-cai': { 
-    host: '41.65.236.100', 
-    port: 443, 
-    country: 'Egypt', 
-    city: 'Cairo', 
-    flag: '🇪🇬',
-    obfuscation: ['tls', 'https'],
-    priority: 2,
-    isAfrican: true
-  },
-  'ng-lag': { 
-    host: '41.203.76.50', 
-    port: 443, 
-    country: 'Nigeria', 
-    city: 'Lagos', 
-    flag: '🇳🇬',
-    obfuscation: ['tls'],
-    priority: 2,
-    isAfrican: true
-  },
-  'gh-acc': { 
-    host: '41.215.160.100', 
-    port: 443, 
-    country: 'Ghana', 
-    city: 'Accra', 
-    flag: '🇬🇭',
-    obfuscation: ['tls'],
-    priority: 2,
-    isAfrican: true
-  },
-  
-  // === EUROPEAN SERVERS (Good balance of speed and privacy) ===
-  'nl-ams': { 
-    host: '185.199.228.220', 
-    port: 443, 
-    country: 'Netherlands', 
-    city: 'Amsterdam', 
-    flag: '🇳🇱',
-    obfuscation: ['tls', 'websocket', 'domain-front'],
-    priority: 1,
-    description: 'Privacy haven - no data retention'
-  },
-  'de-fra': { 
-    host: '91.108.56.180', 
-    port: 443, 
-    country: 'Germany', 
-    city: 'Frankfurt', 
-    flag: '🇩🇪',
-    obfuscation: ['tls', 'https', 'websocket'],
-    priority: 1
-  },
-  'gb-lon': { 
-    host: '178.62.56.148', 
-    port: 443, 
-    country: 'United Kingdom', 
-    city: 'London', 
-    flag: '🇬🇧',
-    obfuscation: ['tls', 'websocket'],
-    priority: 1
-  },
-  'fr-par': { 
-    host: '51.158.166.230', 
-    port: 443, 
-    country: 'France', 
-    city: 'Paris', 
-    flag: '🇫🇷',
-    obfuscation: ['tls', 'https'],
-    priority: 2
-  },
-  'ch-zur': { 
-    host: '185.156.46.100', 
-    port: 443, 
-    country: 'Switzerland', 
-    city: 'Zurich', 
-    flag: '🇨🇭',
-    obfuscation: ['tls', 'https'],
-    priority: 1,
-    description: 'Swiss privacy laws - very secure'
-  },
-  
-  // === AMERICAS ===
-  'us-nyc': { 
-    host: '45.33.32.156', 
-    port: 443, 
-    country: 'United States', 
-    city: 'New York', 
-    flag: '🇺🇸',
-    obfuscation: ['tls', 'websocket'],
-    priority: 2
-  },
-  'us-lax': { 
-    host: '104.131.175.196', 
-    port: 443, 
-    country: 'United States', 
-    city: 'Los Angeles', 
-    flag: '🇺🇸',
-    obfuscation: ['tls', 'websocket'],
-    priority: 2
-  },
-  'br-sao': { 
-    host: '191.235.85.100', 
-    port: 443, 
-    country: 'Brazil', 
-    city: 'São Paulo', 
-    flag: '🇧🇷',
-    obfuscation: ['tls'],
-    priority: 2
-  },
-  'ca-tor': { 
-    host: '162.253.128.50', 
-    port: 443, 
-    country: 'Canada', 
-    city: 'Toronto', 
-    flag: '🇨🇦',
-    obfuscation: ['tls', 'websocket'],
-    priority: 2,
-    description: 'Strong privacy laws'
-  },
-  
-  // === ASIA ===
-  'sg-sin': { 
-    host: '128.199.192.50', 
-    port: 443, 
-    country: 'Singapore', 
-    city: 'Singapore', 
-    flag: '🇸🇬',
-    obfuscation: ['tls', 'websocket'],
-    priority: 2
-  },
-  'jp-tky': { 
-    host: '45.76.98.100', 
-    port: 443, 
-    country: 'Japan', 
-    city: 'Tokyo', 
-    flag: '🇯🇵',
-    obfuscation: ['tls', 'websocket'],
-    priority: 2
-  },
-  'ae-dxb': { 
-    host: '194.48.215.50', 
-    port: 443, 
-    country: 'UAE', 
-    city: 'Dubai', 
-    flag: '🇦🇪',
-    obfuscation: ['tls', 'https'],
-    priority: 2
-  },
-  'in-mum': { 
-    host: '103.21.58.100', 
-    port: 443, 
-    country: 'India', 
-    city: 'Mumbai', 
-    flag: '🇮🇳',
-    obfuscation: ['tls'],
-    priority: 2
-  },
-  
-  // === CDN FALLBACK SERVERS (Domain Fronting - Nearly Unblockable) ===
-  'cdn-cloudflare': { 
-    host: 'cdnjs.cloudflare.com',
-    realHost: 'freedom-vpn.pages.dev',
-    port: 443, 
-    country: 'Global', 
-    city: 'Cloudflare CDN', 
-    flag: '☁️',
-    obfuscation: ['domain-front'],
-    priority: 5,
-    isCDN: true,
-    description: 'Routes through Cloudflare - very hard to block'
-  },
-  'cdn-google': { 
-    host: 'www.google.com',
-    realHost: 'freedom-vpn.appspot.com',
-    port: 443, 
-    country: 'Global', 
-    city: 'Google Cloud', 
-    flag: '☁️',
-    obfuscation: ['domain-front'],
-    priority: 6,
-    isCDN: true,
-    description: 'Routes through Google - blocking breaks Google'
-  },
-  'cdn-azure': { 
-    host: 'ajax.aspnetcdn.com',
-    realHost: 'freedom-vpn.azureedge.net',
-    port: 443, 
-    country: 'Global', 
-    city: 'Microsoft Azure', 
-    flag: '☁️',
-    obfuscation: ['domain-front'],
-    priority: 5,
-    isCDN: true,
-    description: 'Routes through Microsoft Azure CDN'
-  },
-  'cdn-amazon': { 
-    host: 'd1234567890.cloudfront.net',
-    realHost: 'freedom-vpn.cloudfront.net',
-    port: 443, 
-    country: 'Global', 
-    city: 'Amazon CloudFront', 
-    flag: '☁️',
-    obfuscation: ['domain-front'],
-    priority: 5,
-    isCDN: true,
-    description: 'Routes through Amazon CloudFront'
-  }
 };
 
+// Servers from dynamic sources (FreeProxyService, VPNGate, FreedomVPN)
+// are indexed here so setProxy() can look them up by id.
+let _dynamicServersMap = {};
+function _updateDynamicServers(servers) {
+  for (const s of servers) { _dynamicServersMap[s.id] = s; }
+}
+
+// Static server map — empty at startup.
+// Real servers are fetched at runtime from FreeProxyService,
+// VPNGateService, and FreedomVPNServerService.
+const PROXY_SERVERS = {};
+
+// (Legacy placeholder — kept so old code paths don't break)
 // Enhanced state management
 let state = {
   isConnected: false,
@@ -627,25 +476,25 @@ const FAILOVER_THRESHOLD = 3;
 let healthInterval = null;
 let failureCount = 0;
 
-// Apply proxy configuration with obfuscation
-function setProxy(serverId) {
-  const server = PROXY_SERVERS[serverId];
+// Apply proxy configuration.
+// Accepts a server object {id,host,port,scheme,...} or a legacy string ID.
+function setProxy(serverOrId) {
+  const server = typeof serverOrId === 'object'
+    ? serverOrId
+    : (PROXY_SERVERS[serverOrId] || _dynamicServersMap[serverOrId]);
   if (!server) {
-    console.error('[FreedomVPN] Server not found:', serverId);
+    console.error('[FreedomVPN] Server not found:', serverOrId);
     return Promise.reject(new Error('Server not found'));
   }
 
-  console.log(`[FreedomVPN] Connecting to ${server.city}, ${server.country}...`);
+  console.log(`[FreedomVPN] Connecting to ${server.host}:${server.port} (${server.country || 'unknown'})...`);
 
-  // Use HTTPS proxy for TLS obfuscation (looks like normal HTTPS traffic)
-  const proxyHost = server.isCDN ? server.host : server.host;
-  
   const config = {
     mode: "fixed_servers",
     rules: {
       singleProxy: {
-        scheme: "https", // HTTPS for obfuscation
-        host: proxyHost,
+        scheme: server.scheme || 'socks5',
+        host: server.host,
         port: server.port
       },
       bypassList: [
@@ -893,7 +742,7 @@ async function getWebRTCPolicy() {
 
 // Generate VPN IP based on server
 function generateVpnIP(serverId) {
-  const server = PROXY_SERVERS[serverId];
+  const server = PROXY_SERVERS[serverId] || _dynamicServersMap[serverId];
   if (!server) return '10.8.0.1';
   
   const ipPrefixes = {
@@ -1010,10 +859,11 @@ async function updateDataStats() {
 
 // ============= AUTOMATIC FAILOVER SYSTEM =============
 
-// Get available servers sorted by priority (African servers first for Uganda users)
+// Get available servers sorted by priority (includes dynamic free proxy pool)
 function getServersByPriority() {
-  const entries = Object.entries(PROXY_SERVERS);
-  
+  const all = { ...PROXY_SERVERS, ..._dynamicServersMap };
+  const entries = Object.entries(all);
+
   // Filter out blocked servers
   const available = entries.filter(([id]) => !state.blockedServers.includes(id));
   
@@ -1061,21 +911,27 @@ async function triggerFailover() {
     }
   }
   
-  // All servers failed - try CDN fallbacks
-  console.log('[FreedomVPN] All regular servers failed, trying CDN fallbacks...');
-  const cdnServers = Object.entries(PROXY_SERVERS).filter(([,s]) => s.isCDN);
-  
-  for (const [serverId, server] of cdnServers) {
-    try {
-      await setProxy(serverId);
-      state.stats.reconnections++;
-      console.log(`[FreedomVPN] Connected via CDN: ${server.city}`);
-      return;
-    } catch (e) {
-      continue;
+  // Refresh free proxy pool and try fresh proxies
+  console.log('[FreedomVPN] Refreshing free proxy pool for failover...');
+  try {
+    const freshProxies = await FreeProxyService.fetchProxies(true);
+    for (const proxy of freshProxies.slice(0, 8)) {
+      try {
+        await setProxy(proxy);
+        state.stats.reconnections++;
+        failureCount = 0;
+        console.log(`[FreedomVPN] Failover to free proxy: ${proxy.host}:${proxy.port}`);
+        chrome.notifications.create({
+          type: 'basic', iconUrl: 'icons/icon128.png', title: 'FreedomVPN',
+          message: `Switched to proxy: ${proxy.host} (${proxy.country || 'unknown'})`
+        });
+        return;
+      } catch (e) { continue; }
     }
+  } catch (e) {
+    console.warn('[FreedomVPN] Free proxy refresh failed:', e.message);
   }
-  
+
   // Complete failure
   console.error('[FreedomVPN] All servers failed. Network may be completely blocked.');
   chrome.notifications.create({
@@ -1106,35 +962,33 @@ function disableWebRTCProtection() {
 
 // ============= SMART SERVER SELECTION =============
 
-// Find the best server based on latency and location
+// Find the best server — uses free proxy pool first, falls back to dynamic map
 async function findBestServer() {
   console.log('[FreedomVPN] Finding best server...');
-  
-  const servers = state.settings.preferAfrican 
-    ? Object.entries(PROXY_SERVERS).filter(([,s]) => s.isAfrican)
-    : Object.entries(PROXY_SERVERS).filter(([,s]) => !s.isCDN);
-  
-  let bestServer = null;
-  let bestLatency = Infinity;
-  
-  // Test up to 5 servers in parallel
-  const testServers = servers.slice(0, 5);
-  const results = await Promise.all(
-    testServers.map(async ([id, server]) => ({
-      id,
-      server,
-      latency: await measureLatency(server.host)
-    }))
-  );
-  
-  for (const result of results) {
-    if (result.latency < bestLatency) {
-      bestLatency = result.latency;
-      bestServer = result;
-    }
+
+  // Ensure we have a fresh proxy pool
+  if (FreeProxyService.proxies.length === 0) {
+    await FreeProxyService.fetchProxies().catch(() => {});
   }
-  
-  return bestServer?.id || 'ke-nrb'; // Default to Kenya
+
+  // Return the top proxy from the pool (already sorted by uptime/speed)
+  const next = FreeProxyService.getNext();
+  if (next) {
+    console.log(`[FreedomVPN] Best server: ${next.host}:${next.port} (${next.source})`);
+    return next; // setProxy accepts objects
+  }
+
+  // Fallback: pick from VPNGate servers if any are loaded
+  if (VPNGateService.servers.length > 0) {
+    return VPNGateService.servers[0];
+  }
+
+  // Last resort: FreedomVPN server if configured
+  if (FreedomVPNServerService.servers.length > 0) {
+    return FreedomVPNServerService.servers[0];
+  }
+
+  return null;
 }
 
 // Update extension icon based on connection state
@@ -1189,8 +1043,9 @@ async function handleMessage(message, sendResponse) {
       
     case 'connectBest':
       try {
-        const bestId = await findBestServer();
-        const result = await setProxy(bestId);
+        const best = await findBestServer();
+        if (!best) throw new Error('No servers available — check your internet connection');
+        const result = await setProxy(best);
         sendResponse(result);
       } catch (error) {
         sendResponse({ success: false, error: error.message });
@@ -1274,17 +1129,29 @@ async function handleMessage(message, sendResponse) {
       }
       break;
 
-    case 'getAllServers':
+    case 'refreshFreeProxies':
+      try {
+        const proxies = await FreeProxyService.fetchProxies(true);
+        sendResponse({ success: true, count: proxies.length });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+      break;
+
+    case 'getAllServers': {
       const staticServers = Object.entries(PROXY_SERVERS).map(([id, s]) => ({ id, ...s }));
       const realVpnServers = VPNGateService.servers;
       const freedomServers = FreedomVPNServerService.servers;
+      const freeProxies   = FreeProxyService.proxies.slice(0, 20);
       sendResponse({ 
-        static: staticServers, 
+        static: staticServers,
         real: realVpnServers,
         freedom: freedomServers,
-        all: [...freedomServers, ...staticServers, ...realVpnServers]
+        free: freeProxies,
+        all: [...freedomServers, ...freeProxies, ...realVpnServers, ...staticServers]
       });
       break;
+    }
 
     case 'getUserLocation':
       try {
@@ -1372,27 +1239,29 @@ async function handleMessage(message, sendResponse) {
 
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('[FreedomVPN] Extension installed. Initializing...');
-  
+
   // Get real IP before connecting
   state.ip.real = await fetchExternalIP();
-  
+
   // Get user location
   const location = await GeolocationService.getCurrentLocation();
   state.userLocation = location;
-  console.log('[FreedomVPN] User location:', location);
-  
-  // Fetch real VPN servers from VPNGate
+
+  // Fetch free proxies (primary) and VPNGate (informational)
+  try {
+    const proxies = await FreeProxyService.fetchProxies();
+    console.log(`[FreedomVPN] Loaded ${proxies.length} free proxies`);
+  } catch (e) {
+    console.warn('[FreedomVPN] Free proxy fetch failed:', e.message);
+  }
   try {
     const realServers = await VPNGateService.fetchRealServers();
-    console.log(`[FreedomVPN] Loaded ${realServers.length} real VPNGate servers`);
-  } catch (e) {
-    console.warn('[FreedomVPN] Failed to fetch real servers');
-  }
-  
+    console.log(`[FreedomVPN] Loaded ${realServers.length} VPNGate servers`);
+  } catch (e) {}
+
   chrome.storage.local.set({ vpnState: state });
   updateIcon(false);
-  
-  console.log('[FreedomVPN] Extension installed. Real IP:', state.ip.real);
+  console.log('[FreedomVPN] Extension ready. Real IP:', state.ip.real);
 });
 
 chrome.runtime.onStartup.addListener(async () => {
@@ -1411,19 +1280,23 @@ chrome.runtime.onStartup.addListener(async () => {
   const location = await GeolocationService.getCurrentLocation();
   state.userLocation = location;
   
-  // Fetch real VPN servers — FreedomVPN first, VPNGate as fallback
+  // Load servers: free proxies first (for actual connections), then FreedomVPN, then VPNGate
+  try {
+    const proxies = await FreeProxyService.fetchProxies();
+    console.log(`[FreedomVPN] Loaded ${proxies.length} free proxies`);
+  } catch (e) {}
   try {
     const freedomServers = await FreedomVPNServerService.fetchServers();
     if (freedomServers.length > 0) {
       console.log(`[FreedomVPN] Loaded ${freedomServers.length} production servers`);
     }
-    await VPNGateService.fetchRealServers();
   } catch (e) {}
+  try { await VPNGateService.fetchRealServers(); } catch (e) {}
   
   // Auto-connect if enabled
   if (state.settings.autoConnect) {
-    const bestId = await findBestServer();
-    await setProxy(bestId);
+    const best = await findBestServer();
+    if (best) await setProxy(best).catch(() => {});
   } else {
     updateIcon(false);
   }
