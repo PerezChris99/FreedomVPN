@@ -3,6 +3,7 @@ package com.freedomvpn.vpn.server
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.CertificatePinner
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -37,6 +38,35 @@ class ServerApiClient @Inject constructor() {
         // Override by injecting a ServerConfig or setting this before first use.
         // In production this should come from a BuildConfig constant or remote config.
         var BASE_URL: String = BuildConfigHelper.SERVER_BASE_URL
+
+        /**
+         * SHA-256 certificate pins for the server domain.
+         *
+         * These are the SPKI fingerprints (Subject Public Key Info) for the TLS
+         * certificate chain. Include at minimum the leaf cert pin + one backup
+         * (intermediate or root) so rotation does not break clients.
+         *
+         * HOW TO OBTAIN:
+         *   openssl s_client -connect YOUR_DOMAIN:443 </dev/null 2>/dev/null \
+         *     | openssl x509 -pubkey -noout \
+         *     | openssl pkey -pubin -outform der \
+         *     | openssl dgst -sha256 -binary \
+         *     | base64
+         *
+         * IMPORTANT: Replace these placeholder pins with your actual server's
+         * certificate pins before deploying to production.
+         * Let's Encrypt ISRG Root X1 SPKI pin is provided as a safe backup.
+         */
+        val CERT_PINS: Array<String> = arrayOf(
+            // TODO: Replace with your server's actual leaf certificate SPKI pin
+            // "sha256/REPLACE_WITH_YOUR_LEAF_CERT_SPKI_PIN_BASE64=",
+
+            // Let's Encrypt ISRG Root X1 — safe backup for LE-issued certs
+            "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=",
+
+            // Let's Encrypt E1 intermediate — backup for LE ECDSA chain
+            "sha256/jQJTbIh0grw0/1TkHSumWb+Fs0Ggogr621gT3PvPKG0=",
+        )
     }
 
     data class PeerCredentials(
@@ -58,17 +88,31 @@ class ServerApiClient @Inject constructor() {
         val publicKey: String,
     )
 
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
-        // Enforce HTTPS — no plain HTTP connections
-        .apply {
-            if (!BASE_URL.startsWith("https://")) {
-                Log.w(TAG, "WARNING: BASE_URL is not HTTPS — connection is insecure")
-            }
+    private val httpClient: OkHttpClient by lazy {
+        val hostname = runCatching {
+            java.net.URI(BASE_URL).host ?: ""
+        }.getOrDefault("")
+
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+
+        // Enforce HTTPS — log a warning if not
+        if (!BASE_URL.startsWith("https://")) {
+            Log.w(TAG, "WARNING: BASE_URL is not HTTPS — connection is insecure")
         }
-        .build()
+
+        // Certificate pinning — prevents MITM even with a rogue CA
+        if (hostname.isNotEmpty() && BASE_URL.startsWith("https://")) {
+            val pinner = CertificatePinner.Builder().apply {
+                CERT_PINS.forEach { pin -> add(hostname, pin) }
+            }.build()
+            builder.certificatePinner(pinner)
+        }
+
+        builder.build()
+    }
 
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
