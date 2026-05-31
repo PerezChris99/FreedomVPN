@@ -79,4 +79,38 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
+// ─── Scheduled peer expiry ───────────────────────────────────────────────────
+// Auto-expire peers inactive > PEER_EXPIRY_DAYS (default 30) every 24 hours.
+// This runs in-process without a cron daemon dependency.
+
+const wg           = require('./utils/wireguard');
+const EXPIRY_DAYS  = parseInt(process.env.PEER_EXPIRY_DAYS || '30', 10);
+const EXPIRY_MS    = 24 * 60 * 60 * 1000; // run every 24 hours
+
+async function expireStale() {
+  const cutoff = Math.floor(Date.now() / 1000) - EXPIRY_DAYS * 86400;
+  const stale  = db.prepare('SELECT * FROM peers WHERE last_seen < ?').all(cutoff);
+  if (stale.length === 0) return;
+
+  let count = 0;
+  for (const peer of stale) {
+    try { await wg.removePeer(peer.public_key); } catch {}
+    db.prepare('DELETE FROM peers WHERE id = ?').run(peer.id);
+    db.auditLog('expire', peer.id, '127.0.0.1', peer.platform, {
+      assignedIP: peer.assigned_ip,
+      lastSeen:   peer.last_seen,
+      cutoff,
+      source:     'scheduler',
+    });
+    count++;
+  }
+  console.log(`[scheduler] Expired ${count} stale peer(s) inactive > ${EXPIRY_DAYS} days`);
+}
+
+// Run once at startup (catches peers missed during downtime), then every 24h
+expireStale().catch(err => console.error('[scheduler] expiry error:', err.message));
+setInterval(() => expireStale().catch(err =>
+  console.error('[scheduler] expiry error:', err.message)
+), EXPIRY_MS);
+
 module.exports = app; // for tests
