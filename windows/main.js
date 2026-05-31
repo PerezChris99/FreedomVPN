@@ -1146,4 +1146,22 @@ ipcMain.handle('set-server-url', (event, url) => {
   return { success: true };
 });
 
+// ── Cloudflare WARP (free WireGuard VPN — no account needed) ────────────────
+
+ipcMain.handle('connect-via-warp', async () => {
+  try {
+    const result = await tunnel.connectViaWarp(store);
+    return { success: true, ...result };
+  } catch (err) {
+    console.error('[FreedomVPN] WARP connect failed:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('clear-warp-creds', () => {
+  store.delete('warp_creds');
+  store.delete('warp_private_key');
+  return { success: true };
+});
+
 console.log('[FreedomVPN] Windows app starting... 🛡️');
