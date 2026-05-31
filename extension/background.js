@@ -228,10 +228,111 @@ const GeolocationService = {
   }
 };
 
-// Enhanced server configuration with obfuscation support
-const PROXY_SERVERS = {
-  // === AFRICAN SERVERS (Priority - Lowest latency for Uganda) ===
-  'ke-nrb': { 
+// ============================================================
+// FREEDOMVPN SERVER API SERVICE
+// Fetches the real server list from the self-hosted peer management API
+// (server/api/) and builds a proxy config from the first available server.
+//
+// The extension uses HTTP CONNECT proxying (chrome.proxy) rather than
+// WireGuard (which is OS-level), so the server must expose an HTTP/HTTPS
+// proxy port in addition to the WireGuard UDP port.
+// ============================================================
+const FreedomVPNServerService = {
+  servers: [],
+  lastFetch: null,
+  cacheTimeout: 5 * 60 * 1000, // 5 minutes
+
+  /**
+   * Get the stored FreedomVPN server URL from chrome.storage.sync.
+   * Returns null if no URL has been configured by the user.
+   */
+  async getServerUrl() {
+    return new Promise((resolve) => {
+      chrome.storage.sync.get(['freedomvpn_server_url'], (result) => {
+        resolve(result.freedomvpn_server_url || null);
+      });
+    });
+  },
+
+  /**
+   * Persist the FreedomVPN server URL to chrome.storage.sync.
+   * @param {string} url  HTTPS base URL of the peer management API
+   */
+  async setServerUrl(url) {
+    return new Promise((resolve, reject) => {
+      if (!url || !url.startsWith('https://')) {
+        reject(new Error('Server URL must start with https://'));
+        return;
+      }
+      chrome.storage.sync.set({ freedomvpn_server_url: url }, () => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve();
+      });
+    });
+  },
+
+  /**
+   * Fetch the server list from the FreedomVPN API and cache it.
+   * Falls back to empty list if no server URL is configured or the API fails.
+   */
+  async fetchServers(forceRefresh = false) {
+    if (!forceRefresh && this.servers.length > 0 && this.lastFetch) {
+      if (Date.now() - this.lastFetch < this.cacheTimeout) {
+        return this.servers;
+      }
+    }
+
+    const serverUrl = await this.getServerUrl();
+    if (!serverUrl) return [];
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(`${serverUrl}/api/servers`, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (!response.ok) return [];
+
+      const json = await response.json();
+      const raw = json.servers || [];
+
+      // Map server API fields to the shape used internally by the extension proxy
+      this.servers = raw
+        .filter(s => s.endpoint && s.publicKey)
+        .map(s => {
+          const [host] = (s.endpoint || '').split(':');
+          return {
+            id:          `freedom-${s.id}`,
+            host,
+            port:        443,           // HTTP CONNECT proxy port (Nginx terminates TLS)
+            country:     s.country     || 'Unknown',
+            city:        s.city        || '',
+            countryCode: s.countryCode || 'XX',
+            flag:        this._flag(s.countryCode),
+            ping:        0,
+            priority:    0,             // Highest — prefer our own servers
+            isFreedomServer: true,
+          };
+        });
+
+      this.lastFetch = Date.now();
+      console.log(`[FreedomVPN Server] Fetched ${this.servers.length} servers`);
+      return this.servers;
+    } catch (e) {
+      console.warn('[FreedomVPN Server] API fetch failed:', e.message);
+      return [];
+    }
+  },
+
+  _flag(countryCode) {
+    if (!countryCode || countryCode.length !== 2) return '🌍';
+    return String.fromCodePoint(
+      ...countryCode.toUpperCase().split('').map(c => 127397 + c.charCodeAt(0))
+    );
+  },
+};
+
+// Enhanced server configuration with obfuscation support 
     host: '197.232.170.50', 
     port: 443, 
     country: 'Kenya', 
@@ -1176,10 +1277,12 @@ async function handleMessage(message, sendResponse) {
     case 'getAllServers':
       const staticServers = Object.entries(PROXY_SERVERS).map(([id, s]) => ({ id, ...s }));
       const realVpnServers = VPNGateService.servers;
+      const freedomServers = FreedomVPNServerService.servers;
       sendResponse({ 
         static: staticServers, 
         real: realVpnServers,
-        all: [...staticServers, ...realVpnServers]
+        freedom: freedomServers,
+        all: [...freedomServers, ...staticServers, ...realVpnServers]
       });
       break;
 
@@ -1229,6 +1332,37 @@ async function handleMessage(message, sendResponse) {
       }
       break;
       
+    // ============= FREEDOMVPN SERVER API =============
+
+    case 'setFreedomServerUrl':
+      try {
+        await FreedomVPNServerService.setServerUrl(message.url);
+        // Immediately refresh server list with the new URL
+        await FreedomVPNServerService.fetchServers(true);
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+      break;
+
+    case 'getFreedomServerUrl':
+      try {
+        const url = await FreedomVPNServerService.getServerUrl();
+        sendResponse({ url: url || '' });
+      } catch (error) {
+        sendResponse({ url: '' });
+      }
+      break;
+
+    case 'refreshFreedomServers':
+      try {
+        const servers = await FreedomVPNServerService.fetchServers(true);
+        sendResponse({ success: true, servers });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+      break;
+
     default:
       sendResponse({ error: 'Unknown action' });
   }
@@ -1277,8 +1411,12 @@ chrome.runtime.onStartup.addListener(async () => {
   const location = await GeolocationService.getCurrentLocation();
   state.userLocation = location;
   
-  // Fetch real VPN servers
+  // Fetch real VPN servers — FreedomVPN first, VPNGate as fallback
   try {
+    const freedomServers = await FreedomVPNServerService.fetchServers();
+    if (freedomServers.length > 0) {
+      console.log(`[FreedomVPN] Loaded ${freedomServers.length} production servers`);
+    }
     await VPNGateService.fetchRealServers();
   } catch (e) {}
   
