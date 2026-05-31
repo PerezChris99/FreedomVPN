@@ -5,6 +5,8 @@
  * POST /api/peers/register  — register a new WireGuard peer
  * GET  /api/peers           — list all peers (admin only)
  * DELETE /api/peers/:id     — remove a peer (admin only)
+ * POST /api/peers/expire    — delete peers inactive > EXPIRY_DAYS (admin only)
+ * GET  /api/audit           — read audit log (admin only)
  */
 
 const express = require('express');
@@ -15,6 +17,9 @@ const auth    = require('../middleware/auth');
 const rl      = require('../middleware/rateLimit');
 
 const router = express.Router();
+
+// Peers inactive longer than this are eligible for expiry
+const EXPIRY_DAYS = parseInt(process.env.PEER_EXPIRY_DAYS || '30', 10);
 
 // ─── Validation helpers ───────────────────────────────────────────────────────
 
@@ -80,6 +85,7 @@ router.post('/register',
     // Check if this key is already registered
     const existing = db.prepare('SELECT * FROM peers WHERE public_key = ?').get(publicKey);
     if (existing) {
+      db.auditLog('reregister', existing.id, req.ip, safePlatform, { deviceId: safeDeviceId });
       return res.status(200).json({
         id:             existing.id,
         assignedIP:     `${existing.assigned_ip}/32`,
@@ -113,6 +119,7 @@ router.post('/register',
       VALUES (?, ?, ?, ?, ?)
     `).run(id, publicKey, assignedIP, safePlatform, safeDeviceId);
 
+    db.auditLog('register', id, req.ip, safePlatform, { assignedIP, deviceId: safeDeviceId });
     console.log(`New peer registered: id=${id} ip=${assignedIP} platform=${safePlatform}`);
 
     return res.status(201).json({
@@ -156,8 +163,67 @@ router.delete('/:id', auth.requireAdmin, async (req, res) => {
   }
 
   db.prepare('DELETE FROM peers WHERE id = ?').run(id);
+  db.auditLog('delete', id, req.ip, peer.platform, { assignedIP: peer.assigned_ip });
   console.log(`Peer removed: id=${id} ip=${peer.assigned_ip}`);
   res.json({ removed: true, id });
+});
+
+// ─── POST /api/peers/expire ───────────────────────────────────────────────────
+// Expire (delete) peers whose last_seen is older than EXPIRY_DAYS.
+// This reclaims IP pool slots and removes stale WireGuard peers.
+
+router.post('/expire', auth.requireAdmin, async (req, res) => {
+  const cutoff = Math.floor(Date.now() / 1000) - EXPIRY_DAYS * 86400;
+  const stale  = db.prepare(
+    'SELECT * FROM peers WHERE last_seen < ?'
+  ).all(cutoff);
+
+  if (stale.length === 0) {
+    return res.json({ expired: 0, message: 'No stale peers found' });
+  }
+
+  let expired = 0;
+  const errors = [];
+
+  for (const peer of stale) {
+    try {
+      await wg.removePeer(peer.public_key);
+    } catch (err) {
+      errors.push({ id: peer.id, error: err.message });
+    }
+    db.prepare('DELETE FROM peers WHERE id = ?').run(peer.id);
+    db.auditLog('expire', peer.id, req.ip, peer.platform, {
+      assignedIP: peer.assigned_ip,
+      lastSeen:   peer.last_seen,
+      cutoff,
+    });
+    expired++;
+  }
+
+  console.log(`Peer expiry: removed ${expired} stale peers (inactive > ${EXPIRY_DAYS} days)`);
+  res.json({ expired, errors: errors.length ? errors : undefined });
+});
+
+// ─── GET /api/audit ───────────────────────────────────────────────────────────
+// Returns recent audit log entries, newest first.
+// Optional query params: ?limit=100&event=register
+
+router.get('/audit', auth.requireAdmin, (req, res) => {
+  const limit  = Math.min(parseInt(req.query.limit || '200', 10), 1000);
+  const event  = req.query.event;
+
+  let rows;
+  if (event && /^[a-z]+$/.test(event)) {
+    rows = db.prepare(
+      'SELECT * FROM audit_log WHERE event = ? ORDER BY created_at DESC LIMIT ?'
+    ).all(event, limit);
+  } else {
+    rows = db.prepare(
+      'SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?'
+    ).all(limit);
+  }
+
+  res.json({ entries: rows, total: rows.length });
 });
 
 module.exports = router;
