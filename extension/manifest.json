@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FreedomVPN - Anti-Censorship Edition",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Bypass censorship, protect your privacy. Built for Uganda and Africa. Routes browser traffic through real VPN servers with accurate location detection.",
   "permissions": [
     "proxy",
@@ -20,6 +20,9 @@
   "optional_permissions": [
     "unlimitedStorage"
   ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://www.vpngate.net https://proxylist.geonode.com https://api.proxyscrape.com https://api.cloudflareclient.com https://*.vpngate.net; object-src 'none'; frame-ancestors 'none';"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
