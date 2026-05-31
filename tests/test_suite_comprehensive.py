@@ -317,6 +317,93 @@ def suite_windows() -> bool:
 # Suite 6 — Project structure & secrets scan
 # ─────────────────────────────────────────────────────────────────────────────
 
+def suite_server_infra() -> bool:
+    """Validate that the server infrastructure code is present and structurally sound."""
+    s = Suite("Server Infrastructure")
+
+    SERVER_FILES = [
+        "server/README.md",
+        "server/setup.sh",
+        "server/api/package.json",
+        "server/api/src/index.js",
+        "server/api/src/db.js",
+        "server/api/src/routes/peers.js",
+        "server/api/src/routes/health.js",
+        "server/api/src/routes/servers.js",
+        "server/api/src/middleware/auth.js",
+        "server/api/src/middleware/rateLimit.js",
+        "server/api/src/utils/wireguard.js",
+        "server/nginx/nginx.conf",
+        "server/scripts/healthcheck.sh",
+        "server/api/.env.example",
+        "server/docker-compose.yml",
+    ]
+
+    s.run("All server files present",       lambda: _check_files(SERVER_FILES))
+    s.run("server/api/package.json valid",  lambda: _check_json(PROJECT_ROOT / "server/api/package.json", ["name","dependencies","scripts"]))
+    s.run("Peer route — input validation",  lambda: _check_peer_route_validation())
+    s.run("Auth middleware — timingSafeEqual", lambda: _check_timing_safe_auth())
+    s.run("WireGuard util — no shell concat", lambda: _check_wg_no_shell_injection())
+    s.run("Rate limiting declared",         lambda: _check_rate_limiting())
+    s.run("Nginx — TLS 1.2/1.3 only",       lambda: _check_nginx_tls())
+    s.run("Nginx — security headers",       lambda: _check_nginx_headers())
+    s.run("setup.sh — WireGuard installed", lambda: ("wg genkey" in (PROJECT_ROOT / "server/setup.sh").read_text(encoding="utf-8"), "wg genkey present"))
+    s.run("setup.sh — UFW firewall setup",  lambda: ("ufw" in (PROJECT_ROOT / "server/setup.sh").read_text(encoding="utf-8"), "ufw present"))
+    s.run("DB — WAL mode for concurrency",  lambda: ("WAL" in (PROJECT_ROOT / "server/api/src/db.js").read_text(encoding="utf-8"), "WAL mode set"))
+    s.run("DB — file permissions 0o600",    lambda: ("0o600" in (PROJECT_ROOT / "server/api/src/db.js").read_text(encoding="utf-8"), "chmod 0o600 set"))
+    return s.report()
+
+def _check_peer_route_validation() -> Tuple[bool, str]:
+    content = (PROJECT_ROOT / "server/api/src/routes/peers.js").read_text(encoding="utf-8")
+    if "isValidWireGuardKey" not in content:
+        return False, "No WireGuard key validation function"
+    if "decoded.length === 32" not in content:
+        return False, "No 32-byte key length check"
+    if "VALID_PLATFORMS" not in content:
+        return False, "No platform allow-list"
+    return True, "Key validation, length check, platform allowlist all present"
+
+def _check_timing_safe_auth() -> Tuple[bool, str]:
+    content = (PROJECT_ROOT / "server/api/src/middleware/auth.js").read_text(encoding="utf-8")
+    if "timingSafeEqual" not in content:
+        return False, "timingSafeEqual not used — token comparison is timing-vulnerable"
+    return True, "timingSafeEqual used for constant-time token comparison"
+
+def _check_wg_no_shell_injection() -> Tuple[bool, str]:
+    content = (PROJECT_ROOT / "server/api/src/utils/wireguard.js").read_text(encoding="utf-8")
+    if "execFile" not in content:
+        return False, "execFile not used — potential shell injection via exec()"
+    if "exec(" in content and "execFile" not in content:
+        return False, "exec() used without execFile — shell injection risk"
+    if "validateKey" not in content:
+        return False, "No key validation before passing to wg CLI"
+    return True, "execFile (no shell) + validateKey before execution"
+
+def _check_rate_limiting() -> Tuple[bool, str]:
+    content = (PROJECT_ROOT / "server/api/src/middleware/rateLimit.js").read_text(encoding="utf-8")
+    if "rateLimit" not in content:
+        return False, "express-rate-limit not used"
+    if "register" not in content:
+        return False, "No stricter registration rate limit"
+    return True, "Global + per-registration rate limits defined"
+
+def _check_nginx_tls() -> Tuple[bool, str]:
+    content = (PROJECT_ROOT / "server/nginx/nginx.conf").read_text(encoding="utf-8")
+    if "TLSv1.2" not in content or "TLSv1.3" not in content:
+        return False, "TLS 1.2/1.3 not configured"
+    if "TLSv1 " in content or "TLSv1.1" in content:
+        return False, "Insecure TLS 1.0/1.1 enabled"
+    return True, "TLS 1.2 + 1.3 only"
+
+def _check_nginx_headers() -> Tuple[bool, str]:
+    content = (PROJECT_ROOT / "server/nginx/nginx.conf").read_text(encoding="utf-8")
+    required = ["Strict-Transport-Security", "X-Frame-Options", "X-Content-Type-Options"]
+    missing = [h for h in required if h not in content]
+    if missing:
+        return False, f"Missing headers: {missing}"
+    return True, "HSTS, X-Frame-Options, X-Content-Type-Options set"
+
+
 def suite_structure() -> bool:
     s = Suite("Project Structure & Hygiene")
 
@@ -394,6 +481,7 @@ def main():
         ("Android Security",     suite_android),
         ("Extension Security",   suite_extension),
         ("Windows Security",     suite_windows),
+        ("Server Infrastructure",suite_server_infra),
         ("Project Structure",    suite_structure),
     ]
 

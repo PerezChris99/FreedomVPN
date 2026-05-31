@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  # ── WireGuard VPN ───────────────────────────────────────────────────────────
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: freedomvpn-wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - SERVERURL=${SERVER_DOMAIN}
+      - SERVERPORT=${VPN_PORT:-51820}
+      - ALLOWEDIPS=0.0.0.0/0
+      - INTERNAL_SUBNET=${VPN_SUBNET:-10.8.0.0/24}
+      - PEERDNS=${DNS1:-1.1.1.1}
+    volumes:
+      - wg-config:/config
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "${VPN_PORT:-51820}:${VPN_PORT:-51820}/udp"
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+
+  # ── Peer Management API ─────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: freedomvpn-api
+    env_file: ./api/.env
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - api-data:/opt/data
+    network_mode: service:wireguard   # Share network namespace with WireGuard
+    restart: unless-stopped
+    depends_on:
+      - wireguard
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Nginx TLS termination ────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: freedomvpn-nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/freedomvpn.conf:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  # ── Certbot TLS ──────────────────────────────────────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    container_name: freedomvpn-certbot
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    command: certonly --webroot --webroot-path=/var/www/certbot
+             --email admin@${SERVER_DOMAIN}
+             --agree-tos --no-eff-email
+             -d ${SERVER_DOMAIN}
+
+volumes:
+  wg-config:
+  api-data:
+  certbot-www:
+  certbot-certs:
