@@ -640,6 +640,103 @@ def suite_extension_server_api() -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Phase 6a: Extension — Free Proxy Service (replaces dead hardcoded IPs)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_free_proxy_service() -> bool:
+    bg = PROJECT_ROOT / "extension" / "background.js"
+
+    s = Suite("Extension — Free Proxy Service")
+
+    def _t(check_fn):
+        if not bg.exists():
+            return False, "file missing"
+        return check_fn(bg.read_text(encoding="utf-8"))
+
+    s.run("FreeProxyService object defined", lambda: _t(
+        lambda txt: ("FreeProxyService" in txt, "defined")
+    ))
+    s.run("GeoNode API URL present", lambda: _t(
+        lambda txt: ("proxylist.geonode.com" in txt, "GeoNode URL")
+    ))
+    s.run("ProxyScrape API URL present", lambda: _t(
+        lambda txt: ("api.proxyscrape.com" in txt, "ProxyScrape URL")
+    ))
+    s.run("fetchProxies() method", lambda: _t(
+        lambda txt: ("fetchProxies" in txt, "method present")
+    ))
+    s.run("getNext() round-robin method", lambda: _t(
+        lambda txt: ("getNext" in txt, "round-robin method")
+    ))
+    s.run("Dynamic server map (_dynamicServersMap)", lambda: _t(
+        lambda txt: ("_dynamicServersMap" in txt, "dynamic map present")
+    ))
+    s.run("setProxy accepts server objects (not just IDs)", lambda: _t(
+        lambda txt: ("typeof serverOrId" in txt or "serverOrId" in txt, "object-aware setProxy")
+    ))
+    s.run("Proxy scheme uses server.scheme (not hardcoded 'https')", lambda: _t(
+        lambda txt: ("server.scheme" in txt and "socks5" in txt, "correct scheme")
+    ))
+    s.run("Dead hardcoded IPs removed (197.232 Kenya gone)", lambda: _t(
+        lambda txt: ("197.232.170.50" not in txt, "dead IPs removed")
+    ))
+    s.run("refreshFreeProxies message handler", lambda: _t(
+        lambda txt: ("refreshFreeProxies" in txt, "handler present")
+    ))
+    s.run("triggerFailover uses FreeProxyService", lambda: _t(
+        lambda txt: ("FreeProxyService.fetchProxies" in txt, "failover uses free proxies")
+    ))
+    s.run("onInstalled fetches free proxies", lambda: _t(
+        lambda txt: ("FreeProxyService.fetchProxies" in txt and "onInstalled" in txt, "startup fetch")
+    ))
+
+    return s.report()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 6b: Windows — Cloudflare WARP (free WireGuard VPN)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def suite_warp_integration() -> bool:
+    tunnel_js = PROJECT_ROOT / "windows" / "system-tunnel.js"
+    main_js   = PROJECT_ROOT / "windows" / "main.js"
+
+    s = Suite("Windows — Cloudflare WARP Integration")
+
+    def _t(path, check_fn):
+        if not path.exists():
+            return False, "file missing"
+        return check_fn(path.read_text(encoding="utf-8"))
+
+    s.run("system-tunnel.js — static registerWarpPeer()", lambda: _t(
+        tunnel_js, lambda txt: ("static async registerWarpPeer" in txt, "present")
+    ))
+    s.run("system-tunnel.js — WARP API URL (cloudflareclient.com)", lambda: _t(
+        tunnel_js, lambda txt: ("api.cloudflareclient.com" in txt, "WARP API URL")
+    ))
+    s.run("system-tunnel.js — connectViaWarp() method", lambda: _t(
+        tunnel_js, lambda txt: ("async connectViaWarp" in txt, "method present")
+    ))
+    s.run("system-tunnel.js — WARP default port 2408", lambda: _t(
+        tunnel_js, lambda txt: ("2408" in txt, "WireGuard WARP port")
+    ))
+    s.run("system-tunnel.js — warp_private_key stored", lambda: _t(
+        tunnel_js, lambda txt: ("warp_private_key" in txt, "key persistence")
+    ))
+    s.run("system-tunnel.js — warp_creds cached in store", lambda: _t(
+        tunnel_js, lambda txt: ("warp_creds" in txt, "credential caching")
+    ))
+    s.run("main.js — connect-via-warp IPC handler", lambda: _t(
+        main_js, lambda txt: ("connect-via-warp" in txt, "IPC handler present")
+    ))
+    s.run("main.js — clear-warp-creds IPC handler", lambda: _t(
+        main_js, lambda txt: ("clear-warp-creds" in txt, "IPC handler present")
+    ))
+
+    return s.report()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -660,6 +757,8 @@ def main():
         ("Android — Server API Client",     suite_android_server_api),
         ("Windows — Server API Connection", suite_windows_server_api),
         ("Extension — Server API",          suite_extension_server_api),
+        ("Extension — Free Proxy Service",  suite_free_proxy_service),
+        ("Windows — Cloudflare WARP",       suite_warp_integration),
     ]
 
     results = []
