@@ -116,6 +116,74 @@ class SystemWideTunnel {
     }
 
     /**
+     * Encrypt a plaintext string using Windows DPAPI (CryptProtectData).
+     * The encrypted blob can ONLY be decrypted by the same Windows user account
+     * on the same machine — if the store file is copied, keys cannot be extracted.
+     *
+     * Falls back to base64-identity encoding on non-Windows platforms (dev/test only).
+     *
+     * @param {string} plaintext  UTF-8 plaintext to protect
+     * @returns {string}          Base64-encoded encrypted blob (or plain base64 on non-Windows)
+     */
+    static encryptDPAPI(plaintext) {
+        if (process.platform !== 'win32') {
+            // Non-Windows fallback — NOT secure; for dev/test only
+            return Buffer.from(plaintext, 'utf8').toString('base64');
+        }
+        // PowerShell one-liner: pipe plaintext bytes through ProtectedData.Protect
+        const bytes = Buffer.from(plaintext, 'utf8').toString(',');
+        const ps = `
+[System.Convert]::ToBase64String(
+    [System.Security.Cryptography.ProtectedData]::Protect(
+        [byte[]](${ bytes }.Split(',')),
+        $null,
+        [System.Security.Cryptography.DataProtectionScope]::CurrentUser
+    )
+)`.trim();
+        try {
+            const result = execSync(
+                `powershell -NoProfile -NonInteractive -Command "${ps.replace(/"/g, '\\"')}"`,
+                { encoding: 'utf8', timeout: 10000 }
+            );
+            return result.trim();
+        } catch (err) {
+            console.error('[FreedomVPN] DPAPI encrypt failed:', err.message);
+            throw new Error('Failed to encrypt key with DPAPI');
+        }
+    }
+
+    /**
+     * Decrypt a DPAPI-encrypted blob back to plaintext.
+     * Throws if decryption fails (wrong user, wrong machine, or tampered data).
+     *
+     * @param {string} ciphertext  Base64-encoded DPAPI blob
+     * @returns {string}           Decrypted UTF-8 plaintext
+     */
+    static decryptDPAPI(ciphertext) {
+        if (process.platform !== 'win32') {
+            return Buffer.from(ciphertext, 'base64').toString('utf8');
+        }
+        const ps = `
+[System.Text.Encoding]::UTF8.GetString(
+    [System.Security.Cryptography.ProtectedData]::Unprotect(
+        [System.Convert]::FromBase64String('${ciphertext}'),
+        $null,
+        [System.Security.Cryptography.DataProtectionScope]::CurrentUser
+    )
+)`.trim();
+        try {
+            const result = execSync(
+                `powershell -NoProfile -NonInteractive -Command "${ps.replace(/"/g, '\\"')}"`,
+                { encoding: 'utf8', timeout: 10000 }
+            );
+            return result.trim();
+        } catch (err) {
+            console.error('[FreedomVPN] DPAPI decrypt failed:', err.message);
+            throw new Error('Failed to decrypt key with DPAPI — key may be from a different user or machine');
+        }
+    }
+
+    /**
      * Async variant — always uses WireGuard CLI when available, guaranteeing
      * 100% compatible key encoding without needing tweetnacl in PATH-only envs.
      * @returns {Promise<{ privateKey: string, publicKey: string }>}
@@ -583,21 +651,29 @@ Write-Host "VPN Connected Successfully"
     async connectViaServerApi(serverUrl, store) {
         console.log('[FreedomVPN] Connecting via server API:', serverUrl);
 
-        // 1. Get or generate key pair (persist in store)
+        // 1. Get or generate key pair — private key is DPAPI-encrypted at rest
         let keyPair = null;
-        const storedPrivKey = store && store.get('wg_private_key');
-        if (storedPrivKey) {
-            const nacl = require('tweetnacl');
-            const privBytes = Buffer.from(storedPrivKey, 'base64');
-            const pubBytes  = nacl.scalarMult.base(new Uint8Array(privBytes));
-            keyPair = {
-                privateKey: storedPrivKey,
-                publicKey:  Buffer.from(pubBytes).toString('base64'),
-            };
-        } else {
+        const storedEncKey = store && store.get('wg_private_key');
+        if (storedEncKey) {
+            try {
+                const privKey = SystemWideTunnel.decryptDPAPI(storedEncKey);
+                const nacl     = require('tweetnacl');
+                const privBytes = Buffer.from(privKey, 'base64');
+                const pubBytes  = nacl.scalarMult.base(new Uint8Array(privBytes));
+                keyPair = {
+                    privateKey: privKey,
+                    publicKey:  Buffer.from(pubBytes).toString('base64'),
+                };
+            } catch {
+                // Decryption failed (different user/machine) — generate a new key
+                console.warn('[FreedomVPN] DPAPI decrypt failed for wg_private_key — regenerating');
+                keyPair = null;
+            }
+        }
+        if (!keyPair) {
             keyPair = await SystemWideTunnel.generateKeyPairAsync();
             if (store) {
-                store.set('wg_private_key', keyPair.privateKey);
+                store.set('wg_private_key', SystemWideTunnel.encryptDPAPI(keyPair.privateKey));
             }
         }
 
@@ -708,20 +784,27 @@ Write-Host "VPN Connected Successfully"
     async connectViaWarp(store) {
         console.log('[FreedomVPN] Connecting via Cloudflare WARP (free WireGuard)...');
 
-        // 1. Get or generate the WireGuard key pair (stored separately from server-API key)
+        // 1. Get or generate the WireGuard key pair — DPAPI-encrypted at rest
         let keyPair = null;
-        const storedPrivKey = store && store.get('warp_private_key');
-        if (storedPrivKey) {
-            const nacl = require('tweetnacl');
-            const privBytes = Buffer.from(storedPrivKey, 'base64');
-            const pubBytes  = nacl.scalarMult.base(new Uint8Array(privBytes));
-            keyPair = {
-                privateKey: storedPrivKey,
-                publicKey:  Buffer.from(pubBytes).toString('base64'),
-            };
-        } else {
+        const storedEncKey = store && store.get('warp_private_key');
+        if (storedEncKey) {
+            try {
+                const privKey  = SystemWideTunnel.decryptDPAPI(storedEncKey);
+                const nacl     = require('tweetnacl');
+                const privBytes = Buffer.from(privKey, 'base64');
+                const pubBytes  = nacl.scalarMult.base(new Uint8Array(privBytes));
+                keyPair = {
+                    privateKey: privKey,
+                    publicKey:  Buffer.from(pubBytes).toString('base64'),
+                };
+            } catch {
+                console.warn('[FreedomVPN] DPAPI decrypt failed for warp_private_key — regenerating');
+                keyPair = null;
+            }
+        }
+        if (!keyPair) {
             keyPair = await SystemWideTunnel.generateKeyPairAsync();
-            if (store) store.set('warp_private_key', keyPair.privateKey);
+            if (store) store.set('warp_private_key', SystemWideTunnel.encryptDPAPI(keyPair.privateKey));
         }
 
         // 2. Use cached WARP credentials or register fresh
