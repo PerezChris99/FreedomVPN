@@ -10,6 +10,7 @@ import android.os.IBinder
 import android.util.Log
 import com.freedomvpn.vpngate.VpnGateServer
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +48,16 @@ class VpnConnectionManager @Inject constructor(
             vpnService = binder.getService()
             isBound = true
             Log.d(TAG, "VPN Service connected")
+            
+            // Sync connection state from service
+            vpnService?.let { svc ->
+                kotlinx.coroutines.GlobalScope.launch {
+                    svc.connectionState.collect { state ->
+                        _connectionState.value = state
+                        _isConnected.value = state == FreedomVpnService.ConnectionState.CONNECTED
+                    }
+                }
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -55,6 +66,10 @@ class VpnConnectionManager @Inject constructor(
             Log.d(TAG, "VPN Service disconnected")
         }
     }
+    
+    private val coroutineScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.Dispatchers.Main + kotlinx.coroutines.SupervisorJob()
+    )
 
     /**
      * Bind to the VPN service

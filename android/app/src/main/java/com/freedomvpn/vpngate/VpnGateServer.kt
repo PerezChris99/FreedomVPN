@@ -30,7 +30,8 @@ data class VpnGateServer(
     val logType: String,
     val operator: String,
     val message: String,
-    val openVpnConfigBase64: String
+    val openVpnConfigBase64: String,
+    val port: Int = 443  // Default OpenVPN port
 ) : Parcelable {
 
     /**

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreedomVPN</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">🛡️</div>
+        <div class="logo-text">
+          <h1>FreedomVPN</h1>
+          <p class="tagline" data-i18n="tagline">Digital Freedom for Africa</p>
+        </div>
+      </div>
+      <button class="settings-btn" id="settingsBtn">⚙️</button>
+    </header>
+
+    <!-- Connection Status -->
+    <div class="status-card" id="statusCard">
+      <div class="status-indicator" id="statusIndicator">
+        <div class="status-dot"></div>
+        <span class="status-text" data-i18n="disconnected">Not Connected</span>
+      </div>
+      
+      <!-- Connect Button -->
+      <button class="connect-btn" id="connectBtn">
+        <div class="btn-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L3 7v6c0 5.25 3.675 10.15 9 11 5.325-.85 9-5.75 9-11V7l-9-5z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+        </div>
+        <span class="btn-text" data-i18n="connect">Connect</span>
+      </button>
+      
+      <p class="status-message" id="statusMessage" data-i18n="unprotected">Your connection is not protected</p>
+    </div>
+
+    <!-- IP Address Display -->
+    <div class="ip-card" id="ipCard">
+      <div class="ip-header">
+        <span class="ip-label">🌍 <span data-i18n="yourIP">Your IP Address</span></span>
+        <button class="refresh-btn" id="refreshIpBtn">🔄</button>
+      </div>
+      <div class="ip-display">
+        <span class="ip-address" id="ipAddress">Detecting...</span>
+        <button class="copy-btn" id="copyIpBtn">📋</button>
+      </div>
+      <div class="ip-location" id="ipLocation">
+        <span class="location-flag" id="locationFlag">🌍</span>
+        <span class="location-text" id="locationText">Detecting location...</span>
+      </div>
+    </div>
+
+    <!-- Server Selection -->
+    <div class="server-card" id="serverCard">
+      <div class="server-header">
+        <span data-i18n="selectServer">Select Server</span>
+        <span class="server-count" id="serverCount">24 servers</span>
+      </div>
+      
+      <div class="server-tabs">
+        <button class="tab active" data-region="africa">🌍 Africa</button>
+        <button class="tab" data-region="europe">🇪🇺 Europe</button>
+        <button class="tab" data-region="americas">🌎 Americas</button>
+        <button class="tab" data-region="asia">🌏 Asia</button>
+        <button class="tab" data-region="cdn">☁️ CDN</button>
+      </div>
+      
+      <div class="server-list" id="serverList">
+        <!-- Servers populated by JavaScript -->
+      </div>
+      
+      <!-- Quick Connect Button -->
+      <button class="quick-connect-btn" id="quickConnectBtn">
+        <span>⚡</span> Quick Connect (Best Server)
+      </button>
+    </div>
+
+    <!-- Enhanced Stats -->
+    <div class="stats-card" id="statsCard">
+      <div class="stat">
+        <span class="stat-icon">⏱️</span>
+        <div class="stat-info">
+          <span class="stat-value" id="connectionTime">00:00:00</span>
+          <span class="stat-label" data-i18n="timeConnected">Time Connected</span>
+        </div>
+      </div>
+      <div class="stat">
+        <span class="stat-icon">💰</span>
+        <div class="stat-info">
+          <span class="stat-value" id="moneySaved">0 UGX</span>
+          <span class="stat-label" data-i18n="moneySaved">Money Saved</span>
+        </div>
+      </div>
+      <div class="stat">
+        <span class="stat-icon">📶</span>
+        <div class="stat-info">
+          <span class="stat-value" id="latencyValue">--</span>
+          <span class="stat-label" data-i18n="latency">Latency</span>
+        </div>
+      </div>
+      <div class="stat">
+        <span class="stat-icon">🛡️</span>
+        <div class="stat-info">
+          <span class="stat-value quality-indicator" id="qualityIndicator">--</span>
+          <span class="stat-label" data-i18n="quality">Quality</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Multi-Hop Toggle - Server Bouncing -->
+    <div class="multihop-card" id="multihopCard" style="background: linear-gradient(135deg, #1e1e3f 0%, #2a1a4a 100%); border: 1px solid rgba(147, 51, 234, 0.3); border-radius: 12px; padding: 12px; margin: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">🔀</span>
+          <div>
+            <div style="color: white; font-weight: 600; font-size: 14px;">Multi-Hop</div>
+            <div style="color: #888; font-size: 11px;">Bounce through servers for max anonymity</div>
+          </div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="multiHopToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+      
+      <!-- Multi-Hop Chain Display (hidden when off) -->
+      <div id="multiHopChain" style="display: none; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 8px; margin-top: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <span style="color: #888; font-size: 10px;">TRAFFIC ROUTE</span>
+          <span id="multiHopSpeed" style="color: #a855f7; font-size: 10px;">~90% speed</span>
+        </div>
+        <div id="multiHopRoute" style="display: flex; align-items: center; gap: 4px; overflow-x: auto; font-size: 12px;">
+          <!-- Route populated by JS -->
+        </div>
+      </div>
+      
+      <!-- Preset Selector -->
+      <div style="margin-top: 8px;">
+        <select id="multiHopPreset" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(147, 51, 234, 0.3); border-radius: 6px; padding: 6px 10px; color: white; font-size: 12px;">
+          <option value="FAST">⚡ Fast - 2 hops (~90% speed)</option>
+          <option value="BALANCED" selected>⚖️ Balanced - 2 diverse hops (~88% speed)</option>
+          <option value="MAXIMUM">🔒 Maximum - 3 hops (~80% speed)</option>
+          <option value="PARANOID">🕵️ Paranoid - 4 hops (~70% speed)</option>
+        </select>
+      </div>
+    </div>
+    
+    <!-- Protection Info -->
+    <div class="protection-info" id="protectionInfo">
+      <span id="blocksEvaded"></span>
+    </div>
+    
+    <!-- System-Wide Protection Notice -->
+    <div class="system-notice" id="systemNotice" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid rgba(255,165,0,0.3); border-radius: 12px; padding: 12px; margin: 12px; text-align: center;">
+      <p style="color: #ffa500; font-size: 12px; margin: 0 0 8px 0;">
+        ⚠️ <strong>Browser Extension = Browser Traffic Only</strong>
+      </p>
+      <p style="color: #888; font-size: 11px; margin: 0 0 8px 0;">
+        For FULL SYSTEM-WIDE protection (all apps), use the Desktop App
+      </p>
+      <a href="https://github.com/FreedomVPN/releases" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #00b894 0%, #00a085 100%); color: white; text-decoration: none; padding: 6px 16px; border-radius: 8px; font-size: 11px; font-weight: bold;">
+        🖥️ Get Desktop App (System-Wide VPN)
+      </a>
+    </div>
+
+    <!-- Settings Panel (hidden by default) -->
+    <div class="settings-panel" id="settingsPanel">
+      <div class="settings-header">
+        <button class="back-btn" id="backBtn">←</button>
+        <h2 data-i18n="settings">Settings</h2>
+      </div>
+      
+      <div class="settings-list">
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🌐</span>
+            <span class="setting-label" data-i18n="language">Language</span>
+          </div>
+          <select class="setting-select" id="languageSelect">
+            <option value="en">English</option>
+            <option value="sw">Kiswahili</option>
+            <option value="lg">Luganda</option>
+            <option value="fr">Français</option>
+            <option value="am">አማርኛ</option>
+            <option value="ar">العربية</option>
+            <option value="pt">Português</option>
+            <option value="ha">Hausa</option>
+          </select>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">⚡</span>
+            <span class="setting-label" data-i18n="compression">Data Compression</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="compressionToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">👻</span>
+            <span class="setting-label" data-i18n="stealthMode">Stealth Mode</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="stealthToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🔌</span>
+            <span class="setting-label" data-i18n="autoConnect">Auto Connect</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="autoConnectToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🚨</span>
+            <span class="setting-label" data-i18n="killSwitch">Kill Switch</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="killSwitchToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🔒</span>
+            <span class="setting-label" data-i18n="leakProtection">Leak Protection</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="leakProtectionToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <span class="setting-icon">🌍</span>
+            <span class="setting-label" data-i18n="preferAfrican">Prefer African Servers</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="preferAfricanToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <!-- Force Failover -->
+        <button class="force-failover-btn" id="forceFailoverBtn">
+          🔄 Switch Server (Force Failover)
+        </button>
+      </div>
+      
+      <div class="about-section">
+        <p>FreedomVPN v2.0.0 - Anti-Censorship Edition</p>
+        <p class="about-tagline">Built for Uganda 🇺🇬 & Africa 🌍</p>
+        <p class="about-features">24 Servers • TLS Obfuscation • CDN Fallback • WebRTC Protection</p>
+        <p class="developer-credit">⚡ Developed by <a href="https://perezchris.netlify.app" target="_blank" rel="noopener noreferrer">Nemesis</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

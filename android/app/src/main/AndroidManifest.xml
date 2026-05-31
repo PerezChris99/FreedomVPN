@@ -2,31 +2,37 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Network permissions -->
+    <!-- Network permissions - required for VPN -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     
-    <!-- Foreground service for VPN -->
+    <!-- Location - coarse only; used for nearest-server selection, not stored -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
+    <!-- Foreground service for VPN tunnel -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     
-    <!-- Wake lock to keep VPN running -->
+    <!-- Wake lock to keep VPN running in background -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     
-    <!-- Receive boot completed to auto-start if configured -->
+    <!-- Receive boot completed for auto-start if configured -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
-    <!-- Post notifications for connection status -->
+    <!-- Post notifications for connection status bar -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+    <!-- Feature declarations -->
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
 
     <application
         android:name=".FreedomVpnApplication"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.FreedomVPN"
         android:networkSecurityConfig="@xml/network_security_config"
