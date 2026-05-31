@@ -649,6 +649,102 @@ Write-Host "VPN Connected Successfully"
         } catch {}
         return id;
     }
+
+    /**
+     * Register with Cloudflare WARP to obtain free WireGuard credentials.
+     * The WARP registration API is public and requires no account.
+     * Cloudflare WARP provides a free, fast, privacy-respecting WireGuard VPN.
+     *
+     * @param {string} publicKey  Base64-encoded WireGuard public key
+     * @returns {Promise<{id, serverPublicKey, serverEndpoint, assignedIP, dns}>}
+     */
+    static async registerWarpPeer(publicKey) {
+        const fetch = require('node-fetch');
+        const installId = SystemWideTunnel._getDeviceId();
+
+        const response = await fetch('https://api.cloudflareclient.com/v0a4005/reg', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'okhttp/3.12.1',
+            },
+            body: JSON.stringify({
+                key:           publicKey,
+                install_id:    installId,
+                fcm_token:     '',
+                tos:           new Date().toISOString(),
+                model:         'PC',
+                serial_number: installId,
+                locale:        'en_US',
+            }),
+            timeout: 20000,
+        });
+
+        if (!response.ok) {
+            const body = await response.text().catch(() => '');
+            throw new Error(`WARP registration failed (${response.status}): ${body.slice(0, 200)}`);
+        }
+
+        const data = await response.json();
+        const peer = data.config?.peers?.[0];
+        if (!peer) throw new Error('WARP API: no peer in response');
+
+        return {
+            id:              data.id,
+            serverPublicKey: peer.public_key,
+            serverEndpoint:  peer.endpoint?.host || 'engage.cloudflareclient.com:2408',
+            assignedIP:      data.config.interface?.addresses?.v4 || '172.16.0.2/32',
+            dns:             ['1.1.1.1', '1.0.0.1'],
+        };
+    }
+
+    /**
+     * Connect via Cloudflare WARP (free WireGuard VPN).
+     * Registers automatically on first use — no account, no sign-up required.
+     * Credentials are cached in electron-store so re-registration is skipped.
+     *
+     * @param {object} store  electron-store instance (or any {get, set} object)
+     */
+    async connectViaWarp(store) {
+        console.log('[FreedomVPN] Connecting via Cloudflare WARP (free WireGuard)...');
+
+        // 1. Get or generate the WireGuard key pair (stored separately from server-API key)
+        let keyPair = null;
+        const storedPrivKey = store && store.get('warp_private_key');
+        if (storedPrivKey) {
+            const nacl = require('tweetnacl');
+            const privBytes = Buffer.from(storedPrivKey, 'base64');
+            const pubBytes  = nacl.scalarMult.base(new Uint8Array(privBytes));
+            keyPair = {
+                privateKey: storedPrivKey,
+                publicKey:  Buffer.from(pubBytes).toString('base64'),
+            };
+        } else {
+            keyPair = await SystemWideTunnel.generateKeyPairAsync();
+            if (store) store.set('warp_private_key', keyPair.privateKey);
+        }
+
+        // 2. Use cached WARP credentials or register fresh
+        let creds = store && store.get('warp_creds');
+        if (!creds) {
+            creds = await SystemWideTunnel.registerWarpPeer(keyPair.publicKey);
+            if (store) store.set('warp_creds', creds);
+            console.log('[FreedomVPN] Registered with Cloudflare WARP, peer:', creds.id);
+        } else {
+            console.log('[FreedomVPN] Using cached WARP credentials, peer:', creds.id);
+        }
+
+        // 3. Start WireGuard tunnel with WARP credentials
+        const [endpointHost, endpointPort] = this._parseEndpoint(creds.serverEndpoint);
+        return this.connectWireGuard({
+            privateKey:      keyPair.privateKey,
+            serverPublicKey: creds.serverPublicKey,
+            serverEndpoint:  endpointHost,
+            serverPort:      endpointPort || 2408,
+            clientAddress:   creds.assignedIP,
+            dns:             creds.dns,
+        });
+    }
 }
 
 /**
