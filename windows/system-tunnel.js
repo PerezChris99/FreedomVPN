@@ -258,7 +258,7 @@ PersistentKeepalive = ${persistentKeepalive}`;
             fs.mkdirSync(configDir, { recursive: true });
         }
 
-        const configPath = path.join(configDir, `wg-${process.pid}-${Date.now()}.conf`);
+        const configPath = path.join(configDir, 'FreedomVPN.conf');
         fs.writeFileSync(configPath, config, { mode: 0o600 }); // Secure permissions
         return configPath;
     }
