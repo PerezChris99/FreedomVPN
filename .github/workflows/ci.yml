@@ -35,6 +35,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python tests/run_all_tests.py
+      - run: python tests/test_production_truth.py
 
   android:
     name: Android debug build
