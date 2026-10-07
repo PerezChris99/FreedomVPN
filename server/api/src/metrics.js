@@ -56,9 +56,9 @@ function render(db) {
     const x = JSON.parse(raw), labels = 'method="' + esc(x[0]) + '",route="' + esc(x[1]) + '",status="' + esc(x[2]) + '"';
     lines.push('freedomvpn_http_requests_total{' + labels + '} ' + v.count);
     let cumulative = 0;
-    for (let i=buckets.length-1;i>=0;i--) {
+    for (let i=0;i<buckets.length;i++) {
       cumulative += v.bucket[i];
-      lines.push('freedomvpn_http_request_duration_seconds_bucket{' + labels + ',le="' + buckets[i] + '"} ' + (v.count-cumulative));
+      lines.push('freedomvpn_http_request_duration_seconds_bucket{' + labels + ',le="' + buckets[i] + '"} ' + cumulative);
     }
     lines.push('freedomvpn_http_request_duration_seconds_bucket{' + labels + ',le="+Inf"} ' + v.count);
     lines.push('freedomvpn_http_request_duration_seconds_sum{' + labels + '} ' + v.sum);
