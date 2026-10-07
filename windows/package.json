@@ -23,11 +23,16 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "arch": [
+            "x64",
+            "ia32"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico",
@@ -51,7 +56,9 @@
       {
         "from": "vpn-binaries/",
         "to": "vpn-binaries/",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ]
   },
@@ -64,12 +71,7 @@
   },
   "devDependencies": {
     "electron": "^41.7.1",
-    "electron-builder": "^26.15.3",
-    "jest": "^30.5.2"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"]
+    "electron-builder": "^26.15.3"
   },
   "keywords": [
     "vpn",
