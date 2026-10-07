@@ -1,5 +1,7 @@
 package com.freedomvpn.vpn.server
 
+import com.freedomvpn.BuildConfig
+
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
