@@ -1,7 +1,7 @@
 {
   "name": "freedomvpn-windows",
   "version": "2.0.0",
-  "description": "FreedomVPN for Windows - Anti-Censorship Edition. Bypass VPN blocks in Uganda and Africa.",
+  "description": "FreedomVPN for Windows — privacy-focused VPN and censorship-resilience client.",
   "main": "main.js",
   "author": "FreedomVPN",
   "license": "MIT",
@@ -15,7 +15,7 @@
   "build": {
     "appId": "com.freedom.vpn.windows",
     "productName": "FreedomVPN",
-    "copyright": "Copyright © 2024 FreedomVPN",
+    "copyright": "Copyright © 2026 Kweezi Perez Christopher",
     "directories": {
       "output": "dist"
     },
