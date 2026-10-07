@@ -16,7 +16,7 @@
  * 4. Route table manipulation for full traffic capture
  */
 
-const { exec, spawn, execSync } = require('child_process');
+const { exec, spawn, execSync, execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -258,7 +258,7 @@ PersistentKeepalive = ${persistentKeepalive}`;
             fs.mkdirSync(configDir, { recursive: true });
         }
 
-        const configPath = path.join(configDir, 'wg0.conf');
+        const configPath = path.join(configDir, 'FreedomVPN.conf');
         fs.writeFileSync(configPath, config, { mode: 0o600 }); // Secure permissions
         return configPath;
     }
@@ -299,7 +299,7 @@ PersistentKeepalive = ${persistentKeepalive}`;
 
             const proc = spawn(wireGuardPath, args, {
                 stdio: 'pipe',
-                shell: true
+                shell: false
             });
 
             proc.stdout.on('data', (data) => {
@@ -311,20 +311,40 @@ PersistentKeepalive = ${persistentKeepalive}`;
             });
 
             proc.on('close', (code) => {
-                if (code === 0) {
-                    this.isConnected = true;
-                    this.stats.startTime = Date.now();
-                    console.log('[FreedomVPN] System-wide tunnel established!');
-                    
-                    // Enable kill switch
-                    if (this.killSwitchEnabled) {
-                        this.enableFirewallKillSwitch();
-                    }
-                    
-                    resolve({ success: true, tunnelType: 'WireGuard' });
-                } else {
+                if (code !== 0) {
                     reject(new Error(`WireGuard exited with code ${code}`));
+                    return;
                 }
+
+                // Installing the service is not proof that the tunnel is usable.
+                // Verify the WireGuard interface exists before reporting connected.
+                const interfaceName = path.basename(configPath, '.conf');
+                try {
+                    this.verifyWireGuardTunnel(interfaceName, wireGuardPath);
+                } catch (err) {
+                    try {
+                        execFileSync(wireGuardPath, ['/uninstalltunnelservice', interfaceName], {
+                            stdio: 'ignore',
+                            timeout: 10000
+                        });
+                    } catch {}
+                    reject(err);
+                    return;
+                }
+
+                this.isConnected = true;
+                this.stats.startTime = Date.now();
+                console.log('[FreedomVPN] System-wide WireGuard tunnel verified.');
+
+                if (this.killSwitchEnabled) {
+                    this.enableFirewallKillSwitch();
+                }
+
+                // The installed service owns the tunnel configuration now; remove
+                // the temporary copy so the private key is not left in %TEMP%.
+                try { fs.unlinkSync(configPath); } catch {}
+
+                resolve({ success: true, tunnelType: 'WireGuard', verified: true });
             });
 
             proc.on('error', (err) => {
@@ -333,6 +353,31 @@ PersistentKeepalive = ${persistentKeepalive}`;
 
             this.tunnelProcess = proc;
         });
+    }
+
+    /** Verify that the named WireGuard interface is actually present. */
+    verifyWireGuardTunnel(interfaceName, wireGuardPath = null) {
+        if (!interfaceName || !/^[A-Za-z0-9._-]+$/.test(interfaceName)) {
+            throw new Error('Invalid WireGuard interface name');
+        }
+
+        try {
+            const wgTool = wireGuardPath && wireGuardPath !== 'wireguard'
+                ? path.join(path.dirname(wireGuardPath), 'wg.exe')
+                : 'wg';
+            const output = execFileSync(wgTool, ['show', interfaceName], {
+                encoding: 'utf8',
+                timeout: 5000,
+                windowsHide: true,
+                stdio: ['ignore', 'pipe', 'pipe']
+            });
+            if (!output || !output.trim()) {
+                throw new Error('WireGuard interface reported no state');
+            }
+            return true;
+        } catch (err) {
+            throw new Error(`WireGuard tunnel verification failed: ${err.message}`);
+        }
     }
 
     /**

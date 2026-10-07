@@ -40,33 +40,17 @@ class ServerApiClient @Inject constructor() {
         var BASE_URL: String = BuildConfigHelper.SERVER_BASE_URL
 
         /**
-         * SHA-256 certificate pins for the server domain.
-         *
-         * These are the SPKI fingerprints (Subject Public Key Info) for the TLS
-         * certificate chain. Include at minimum the leaf cert pin + one backup
-         * (intermediate or root) so rotation does not break clients.
-         *
-         * HOW TO OBTAIN:
-         *   openssl s_client -connect YOUR_DOMAIN:443 </dev/null 2>/dev/null \
-         *     | openssl x509 -pubkey -noout \
-         *     | openssl pkey -pubin -outform der \
-         *     | openssl dgst -sha256 -binary \
-         *     | base64
-         *
-         * IMPORTANT: Replace these placeholder pins with your actual server's
-         * certificate pins before deploying to production.
-         * Let's Encrypt ISRG Root X1 SPKI pin is provided as a safe backup.
+         * Production SPKI pins are supplied at build time.
+         * Never ship placeholder pins: a release without real pins must fail
+         * during the Gradle configuration step.
          */
-        val CERT_PINS: Array<String> = arrayOf(
-            // TODO: Replace with your server's actual leaf certificate SPKI pin
-            // "sha256/REPLACE_WITH_YOUR_LEAF_CERT_SPKI_PIN_BASE64=",
+        val CERT_PINS: Array<String>
+            get() = BuildConfigHelper.SERVER_CERT_PINS
+                .split(',')
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .toTypedArray()
 
-            // Let's Encrypt ISRG Root X1 — safe backup for LE-issued certs
-            "sha256/C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=",
-
-            // Let's Encrypt E1 intermediate — backup for LE ECDSA chain
-            "sha256/jQJTbIh0grw0/1TkHSumWb+Fs0Ggogr621gT3PvPKG0=",
-        )
     }
 
     data class PeerCredentials(
@@ -98,18 +82,20 @@ class ServerApiClient @Inject constructor() {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
 
-        // Enforce HTTPS — log a warning if not
-        if (!BASE_URL.startsWith("https://")) {
-            Log.w(TAG, "WARNING: BASE_URL is not HTTPS — connection is insecure")
+        require(BASE_URL.startsWith("https://")) {
+            "FreedomVPN server API requires HTTPS"
+        }
+        require(hostname.isNotEmpty()) {
+            "FreedomVPN server API URL must contain a valid hostname"
+        }
+        require(CERT_PINS.isNotEmpty() && CERT_PINS.all { it.startsWith("sha256/") }) {
+            "FreedomVPN release requires valid SHA-256 SPKI certificate pins"
         }
 
-        // Certificate pinning — prevents MITM even with a rogue CA
-        if (hostname.isNotEmpty() && BASE_URL.startsWith("https://")) {
-            val pinner = CertificatePinner.Builder().apply {
-                CERT_PINS.forEach { pin -> add(hostname, pin) }
-            }.build()
-            builder.certificatePinner(pinner)
-        }
+        val pinner = CertificatePinner.Builder().apply {
+            CERT_PINS.forEach { pin -> add(hostname, pin) }
+        }.build()
+        builder.certificatePinner(pinner)
 
         builder.build()
     }
@@ -267,7 +253,9 @@ class ServerApiClient @Inject constructor() {
  * In development/test builds, defaults to localhost.
  */
 private object BuildConfigHelper {
-    // Replace this with your actual server URL before deployment.
-    // Can also be overridden at runtime via ServerApiClient.BASE_URL.
-    const val SERVER_BASE_URL: String = "https://YOUR_SERVER_DOMAIN_HERE"
+    val SERVER_BASE_URL: String
+        get() = BuildConfig.SERVER_BASE_URL
+
+    val SERVER_CERT_PINS: Array<String>
+        get() = BuildConfig.SERVER_CERT_PINS
 }

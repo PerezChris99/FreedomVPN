@@ -757,8 +757,8 @@ def suite_android_cert_pinning() -> bool:
     s.run("CERT_PINS constant defined", lambda: _t(
         lambda txt: ("CERT_PINS" in txt, "pins array present")
     ))
-    s.run("Let's Encrypt ISRG Root X1 backup pin present", lambda: _t(
-        lambda txt: ("ISRG" in txt or "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=" in txt, "LE root pin")
+    s.run("Production pins are build-configured (no placeholder pin)", lambda: _t(
+        lambda txt: ("BuildConfigHelper.SERVER_CERT_PINS" in txt and "REPLACE_WITH" not in txt, "build-time pins")
     ))
     s.run("CertificatePinner applied to OkHttpClient builder", lambda: _t(
         lambda txt: ("certificatePinner" in txt, "pinning applied")

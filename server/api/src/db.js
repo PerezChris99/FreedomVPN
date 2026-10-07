@@ -42,8 +42,11 @@ const db = new Database(DB_PATH, { fileMustExist: false });
 // Enable WAL mode for better concurrent read performance
 db.pragma('journal_mode = WAL');
 db.pragma('synchronous = NORMAL');
-// Restrict DB file access — only owner can read
-fs.chmodSync(DB_PATH, 0o600);
+// Restrict persistent DB file access — only owner can read.
+// SQLite's special ':memory:' database has no filesystem path.
+if (DB_PATH !== ':memory:') {
+  fs.chmodSync(DB_PATH, 0o600);
+}
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 db.exec(`

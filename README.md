@@ -1,496 +1,248 @@
-# 🌍 FreedomVPN - Anti-Censorship Edition v2.0
+# FreedomVPN
 
-<p align="center">
-  <img src="docs/assets/logo.png" alt="FreedomVPN Logo" width="200"/>
-</p>
+FreedomVPN is a cross-platform, privacy-focused VPN and censorship-resilience project focused on reliable access to the open internet on restricted or unreliable networks.
 
-<p align="center">
-  <strong>Unblockable • Fast • Secure • Untraceable</strong>
-</p>
+> Project status: active engineering / pre-production. Client and server software are being hardened for real-world deployment. Infrastructure, server fleet capacity, distribution, and live network measurements are deployment-dependent.
 
-<p align="center">
-  A cross-platform VPN designed to defeat internet censorship in Uganda and Africa.<br/>
-  Built with domain fronting, TLS obfuscation, and automatic failover.
-</p>
+## What FreedomVPN is
 
----
+The repository contains:
 
-## 🚀 What's New in v2.0 (Anti-Censorship Edition)
+- Android client — Kotlin, Jetpack Compose, Android VpnService, WireGuard integration, leak-protection and resilience components.
+- Windows client — Electron/JavaScript desktop client with system-wide WireGuard integration, connection health monitoring, and privacy controls.
+- Browser extension — Chrome/Chromium Manifest V3 extension for browser-level proxy and server-selection functionality.
+- Server/API — Node.js/Express peer-management API for WireGuard public-key registration, address allocation, peer lifecycle, and health metadata.
+- Shared modules — server discovery, censorship-resilience helpers, statistics and WireGuard utilities.
+- Tests and documentation — automated regression tests and engineering documentation.
 
-### 🛡️ Advanced Anti-Censorship
-- **Domain Fronting** through Cloudflare, Google, Azure, Amazon CDN
-- **TLS Camouflage** - VPN traffic looks like normal HTTPS
-- **WebSocket Tunneling** - Alternative transport layer
-- **Traffic Morphing** - Defeats Deep Packet Inspection (DPI)
-- **Automatic Failover** - Instantly switches servers when blocked
+## Engineering goals
 
-### 🔒 Enhanced Privacy
-- **WebRTC Leak Protection** - Blocks IP leaks via browsers
-- **DNS-over-HTTPS** - Encrypted DNS (Cloudflare, Google, Quad9)
-- **IPv6 Protection** - Prevents IPv6 leaks
-- **Kill Switch** - Blocks all traffic if VPN disconnects
+### Privacy and security
 
-### 📊 Real-Time Statistics
-- Live bandwidth monitoring
-- Latency and connection quality
-- Data saved by compression
-- Money saved in UGX (Ugandan Shillings)
-- Blocks evaded counter
+- WireGuard-based encrypted tunnels where supported.
+- Client private keys remain client-side.
+- Protected key storage on supported desktop paths.
+- Android certificate pinning for the configured production API.
+- DNS, IPv6, WebRTC and kill-switch protections where implemented by the selected client.
+- Fail-closed connection state: configuration or process startup alone is never treated as proof of VPN protection.
 
-### 🌍 24 Global Servers
-- **7 African** (Kenya, Rwanda, Tanzania, South Africa, Egypt, Nigeria, Ghana)
-- **5 European** (Netherlands, Germany, UK, France, Switzerland)
-- **4 Americas** (US NYC/LAX, Brazil, Canada)
-- **4 Asia** (Singapore, Japan, UAE, India)
-- **4 CDN Fallback** (Nearly unblockable)
+### Censorship resilience
 
----
+The codebase contains mechanisms and research-oriented components for:
 
-## 🎯 Mission
+- transport and port fallback;
+- TLS/traffic-obfuscation concepts;
+- alternate proxy/transport paths;
+- server discovery and failover;
+- low-bandwidth connection optimization;
+- geographically diverse server selection.
 
-FreedomVPN exists to provide **free, fast, and untraceable** internet access to people living under oppressive regimes that block websites, throttle connections, and monitor online activity.
+The presence of a mechanism in source code is not proof that it defeats every ISP, DPI system, blocklist, or national shutdown. Effectiveness must be validated against the target network and deployment.
 
-**No logs. No tracking. No compromises.**
+### Server management
 
----
+The server API can:
 
-## 📊 Current Development Status
+- register WireGuard public keys;
+- allocate client addresses from a configured pool;
+- add/remove peers from the live WireGuard interface;
+- expose server health;
+- expire inactive peers;
+- maintain privacy-reduced security audit events.
 
-| Phase | Description | Status | Progress |
-|-------|-------------|--------|----------|
-| Phase 1 | Core VPN Functionality | ✅ Complete | 100% |
-| Phase 2 | Server Discovery & Smart Selection | ✅ Complete | 100% |
-| Phase 3 | Censorship Bypass Features | ✅ Complete | 100% |
-| Phase 4 | User Interface & Experience | ✅ Complete | 100% |
-| Phase 5 | Performance Optimization | ✅ Complete | 100% |
-| Phase 6 | Security Hardening | ✅ Complete | 100% |
-| Phase 7 | Distribution & Polish | ✅ Complete | 100% |
-| **Phase 8** | **Anti-Censorship Hardening (UCC Uganda)** | **✅ Complete** | **100%** |
+The current server implementation is a control-plane component. Large-scale deployment requires additional fleet management, database, capacity, observability, redundancy and network infrastructure.
 
----
+## What is not claimed
 
-## ✨ Features
+FreedomVPN does not claim to provide:
 
-### 🔒 Core VPN
-- **WireGuard Protocol** - Fast, modern, and secure
-- **VPN Gate Integration** - Access 100+ free servers worldwide
-- **Auto-Reconnect** - Never lose connection
-- **Real-time Statistics** - Speed, data usage, and connection time
+- guaranteed anonymity or untraceability;
+- guaranteed censorship bypass;
+- guaranteed availability during an internet shutdown;
+- a fixed global server fleet merely because locations appear in client code;
+- national-scale capacity without corresponding infrastructure;
+- protection against every endpoint, browser, operating-system or application-level privacy leak;
+- proof of security based solely on static or structural tests.
 
-### 🛡️ Censorship Bypass
-- **Traffic Obfuscation** - XOR, padding, and TLS camouflage
-- **Port Fallback** - Automatically try ports 443, 80, 53 if standard ports blocked
-- **DNS Leak Protection** - Secure DNS servers prevent tracking
-- **IPv6 Leak Protection** - Block IPv6 to prevent exposure
-- **Kill Switch** - Block all traffic if VPN disconnects
+VPN technology can reduce exposure to local networks and conceal a user's public IP from destinations, but it cannot make a user universally invisible or remove all endpoint and operational risks.
 
-### ⚡ Performance
-- **Parallel Connection** - Test multiple servers simultaneously
-- **Connection Pooling** - Quick reconnects
-- **MTU Discovery** - Optimal packet sizes
-- **Battery Optimization** - Adaptive power modes
-- **Split Tunneling** - Route specific apps through VPN
+## Architecture
 
-### 🔐 Security
-- **Root Detection** - Warns on compromised devices
-- **Encrypted Storage** - Credentials protected by Android Keystore
-- **Certificate Pinning** - Prevents MITM attacks
-- **Secure Logging** - No sensitive data logged
-- **ProGuard Obfuscation** - Code protection
+~~~
+FreedomVPN clients
+  Android / Windows / Browser
+             |
+             v
+       Control plane
+  Peer registration / health
+             |
+             v
+       WireGuard data plane
+       VPN gateway / relay
+             |
+             v
+          Internet
+~~~
 
-### 📱 User Experience
-- **Modern Dark UI** - Sleek design optimized for VPN apps
-- **One-Tap Connect** - Quick connect to fastest server
-- **Country Selection** - Choose servers by country with flags
-- **Favorites & Recents** - Quick access to preferred servers
-- **Speed Graph** - Real-time network visualization
+The control plane should not sit in the packet path. At scale, VPN gateways should be independently deployable and capable of carrying traffic without depending on the API for every packet.
 
-### 🔀 Multi-Hop Server Bouncing (NEW!)
-- **Server Chaining** - Bounce traffic through multiple VPN servers
-- **4 Anonymity Presets** - Fast (2 hops), Balanced (2 diverse), Maximum (3), Paranoid (4)
-- **Geographic Diversity** - Ensures hops are in different regions
-- **Instant Activation** - One-click toggle with minimal speed loss
-- **Auto Chain Rotation** - Periodic switching for enhanced anonymity
-- **Speed Retention** - ~90% for 2 hops, ~70% for 4 hops
+## Repository layout
 
----
+~~~
+FreedomVPN/
+├── android/       # Android client
+├── windows/       # Windows desktop client
+├── extension/     # Browser extension
+├── server/        # VPN peer-management API
+├── shared/        # Shared JavaScript components
+├── tests/         # Automated regression suites
+├── docs/          # Engineering documentation
+└── web/           # Web-facing assets
+~~~
 
-## 🧪 Test Results & Verification
-
-| Metric | Result |
-|--------|--------|
-| **Total Tests** | 92 |
-| **Passed** | 92 ✅ |
-| **Failed** | 0 |
-| **Pass Rate** | 100% |
-| **Anonymity Rating** | MAXIMUM |
-
-### Test Suites
-- ✅ **VPN Gate Integration** - 8 tests (API, parsing, server selection)
-- ✅ **Platform Compatibility** - 24 tests (Web, Windows, Android, Extension)
-- ✅ **Anonymity Verification** - 40 tests (leaks, encryption, privacy)
-- ✅ **Multi-Hop Server Bouncing** - 28 tests (all platforms)
-
-📋 **[View Complete Test Results →](docs/TEST_RESULTS.md)**
-
----
-
-## 📥 Installation
+## Building
 
 ### Android
-1. Download the latest APK from [Releases](https://github.com/PerezChris99/FreedomVPN/releases)
-2. Enable "Install from Unknown Sources" in Settings
-3. Install the APK
-4. Open FreedomVPN and tap Connect!
 
-### Windows
-1. Download the latest MSIX from [Releases](https://github.com/PerezChris99/FreedomVPN/releases)
-2. Right-click and select "Install"
-3. Launch FreedomVPN from Start Menu
+Requirements:
 
----
-
-## 🛠️ Building from Source
-
-### Prerequisites
-- Android Studio Hedgehog or newer
+- Android Studio
 - JDK 17
 - Android SDK 34
-- Git
+- Gradle wrapper included in the repository
 
-### Android Build
-```bash
-# Clone the repository
-git clone https://github.com/PerezChris99/FreedomVPN.git
-cd FreedomVPN/android
+Debug builds use a development endpoint by default.
 
-# Build debug APK
-./gradlew assembleDebug
+Production/release builds intentionally require deployment configuration:
 
-# Build release APK (requires signing key)
-./gradlew assembleRelease
-```
+~~~
+cd android
+./gradlew assembleRelease -PserverBaseUrl=https://vpn.example.com -PserverCertPins=sha256/<leaf-pin>,sha256/<backup-pin>
+~~~
 
-### Windows Build
-```powershell
-cd FreedomVPN/windows
-dotnet build -c Release
-```
-
----
-
-## 📖 Usage Guide
-
-### Quick Connect
-1. Open the app
-2. Tap the power button
-3. FreedomVPN automatically selects the fastest available server
-
-### Manual Server Selection
-1. Tap "Select Server" below the power button
-2. Browse servers by country
-3. Tap a server to connect
-4. Add servers to favorites with the ❤️ button
-
-### Settings
-- **Kill Switch** - Enable to block all traffic if VPN disconnects
-- **Obfuscation** - Set to "High" for censored networks
-- **Split Tunneling** - Choose which apps use VPN
-
----
-
-## 🏗️ Architecture
-
-```
-FreedomVPN/
-├── android/                    # Android app (Kotlin)
-│   ├── app/src/main/java/com/freedomvpn/
-│   │   ├── vpn/               # Core VPN service
-│   │   │   ├── obfuscation/   # Traffic obfuscation
-│   │   │   ├── optimization/  # Performance optimization
-│   │   │   └── security/      # Kill switch, leak protection
-│   │   ├── security/          # App security (encryption, detection)
-│   │   ├── ui/                # Jetpack Compose UI
-│   │   │   ├── screens/       # Main screens
-│   │   │   ├── components/    # Reusable components
-│   │   │   └── theme/         # Dark theme
-│   │   ├── viewmodel/         # MVVM ViewModels
-│   │   ├── data/              # Data models and repositories
-│   │   └── update/            # Auto-update system
-│   └── build.gradle.kts
-├── windows/                    # Windows app (C#/WinUI 3)
-└── docs/                       # Documentation
-```
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Especially:
-- 🌍 Translations for different languages
-- 🐛 Bug reports and fixes
-- ✨ New obfuscation techniques
-- 📝 Documentation improvements
-
-### Development Setup
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
----
-
-## ⚠️ Disclaimer
-
-FreedomVPN is designed for legitimate privacy use cases:
-- Protecting privacy on public WiFi
-- Bypassing censorship in oppressive regions
-- Secure communication for journalists and activists
-
-**Do not use for illegal activities.** Users are responsible for compliance with local laws.
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## 🙏 Acknowledgments
-
-- [VPN Gate](https://www.vpngate.net/) - Free VPN relay servers
-- [WireGuard](https://www.wireguard.com/) - Modern VPN protocol
-- Android and Windows open-source communities
-
----
-
-<p align="center">
-  Made with ❤️ for <b>Freedom</b>
-</p>
-<p align="center">
-  🇺🇬 Stand with Uganda 🇺🇬
-</p>
-
----
-
-## 🛡️ Security Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         YOUR DEVICE                              │
-│  ┌─────────────┐                                                │
-│  │ FreedomVPN  │                                                │
-│  │    App      │                                                │
-│  └──────┬──────┘                                                │
-│         │                                                        │
-│         ▼                                                        │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │                   PROTECTION LAYERS                          ││
-│  │  ┌─────────────────────────────────────────────────────────┐││
-│  │  │ Layer 1: Kill Switch (Blocks internet if VPN drops)    │││
-│  │  └─────────────────────────────────────────────────────────┘││
-│  │  ┌─────────────────────────────────────────────────────────┐││
-│  │  │ Layer 2: DNS-over-HTTPS (Encrypted DNS via Cloudflare) │││
-│  │  └─────────────────────────────────────────────────────────┘││
-│  │  ┌─────────────────────────────────────────────────────────┐││
-│  │  │ Layer 3: WebRTC/IPv6 Leak Protection (No IP leaks)     │││
-│  │  └─────────────────────────────────────────────────────────┘││
-│  │  ┌─────────────────────────────────────────────────────────┐││
-│  │  │ Layer 4: TLS Camouflage (Looks like normal HTTPS)      │││
-│  │  └─────────────────────────────────────────────────────────┘││
-│  │  ┌─────────────────────────────────────────────────────────┐││
-│  │  │ Layer 5: Domain Fronting (Routes via CDNs)             │││
-│  │  └─────────────────────────────────────────────────────────┘││
-│  │  ┌─────────────────────────────────────────────────────────┐││
-│  │  │ Layer 6: WireGuard Encryption (Military-grade)         │││
-│  │  └─────────────────────────────────────────────────────────┘││
-│  └─────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼ (Invisible to government/ISP)
-┌─────────────────────────────────────────────────────────────────┐
-│                     VPN SERVER (Outside Uganda)                  │
-│              🇰🇪 🇷🇼 🇿🇦 🇳🇱 🇩🇪 🇬🇧 🇨🇭 🇺🇸 🇸🇬 🇯🇵                     │
-│              + CDN Fallbacks: ☁️ Cloudflare, Google, Azure       │
-│                     Your real IP is hidden here                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │   FREE INTERNET │
-                    │   Twitter       │
-                    │   Facebook      │
-                    │   News Sites    │
-                    │   Everything    │
-                    └─────────────────┘
-```
-
----
-
-## 📱 Installation Guide
-
-### Chrome Extension
-```
-1. Download or clone the repository
-2. Open Chrome → chrome://extensions
-3. Enable "Developer mode"
-4. Click "Load unpacked" → Select extension/ folder
-5. Click FreedomVPN icon → Connect!
-```
-
-### Android
-```
-1. Download FreedomVPN.apk from GitHub Releases
-2. Enable "Install from Unknown Sources" in Settings
-3. Open the APK and install
-4. Open app → Tap "Connect" → Done!
-```
+Do not commit production private keys, signing credentials, API secrets or deployment-only certificate material.
 
 ### Windows
-```
-1. Install Node.js and npm
-2. cd windows && npm install
-3. npm start (for development)
-4. npm run build:win (for installer)
-```
 
----
+Requirements:
 
-## 🏗️ Project Structure
-
-```
-FreedomVPN/
-├── extension/                  # Chrome Extension v2.0.0
-│   ├── background.js          # (828 lines) Enhanced proxy + anti-censorship
-│   ├── popup.js               # Dynamic stats UI
-│   ├── popup.html             # CDN tab, quality indicators
-│   ├── popup.css              # Dark theme styling
-│   ├── manifest.json          # v2.0.0 with privacy permissions
-│   └── icons/                 # Extension icons
-│
-├── windows/                    # Windows Electron App v2.0.0
-│   ├── main.js                # (618 lines) Full anti-censorship
-│   ├── renderer.js            # UI logic
-│   ├── index.html             # Custom titlebar, stats
-│   ├── styles.css             # Dark theme
-│   ├── preload.js             # Secure IPC bridge
-│   └── package.json           # Electron 28, electron-builder
-│
-├── app/src/main/java/.../vpn/ # Android App (Kotlin)
-│   ├── anticensorship/        # CensorshipBypassEngine.kt (532 lines)
-│   │                          # LeakProtection.kt
-│   └── stats/                 # DynamicStatsEngine.kt
-│
-├── shared/                     # Cross-Platform JavaScript Modules
-│   ├── anticensorship/        # CensorshipBypassEngine.js (778 lines)
-│   │                          # LeakProtection.js (403 lines)
-│   ├── stats/                 # DynamicStatsEngine.js (457 lines)
-│   ├── vpngate/               # Server parser
-│   └── wireguard/             # Config tools
-│
-├── web/                        # Demo website
-├── docs/                       # Documentation
-│   └── SYSTEM_VERIFICATION.md # Full system verification report
-└── android/                    # Android project files
-```
-
----
-
-## 🔧 For Developers
-
-### Prerequisites
-
-**Chrome Extension:**
-- Chrome/Chromium browser
-- Developer mode enabled
-
-**Android:**
-- Android Studio Hedgehog+
-- JDK 17+
-- Android SDK 34+
-
-**Windows:**
 - Node.js 18+
-- Electron 28
+- npm
+- Windows with the required VPN/WireGuard components for real system-wide tunneling
 
-### Build Commands
-
-```bash
-# Chrome Extension - Load unpacked in chrome://extensions
-
-# Android Debug Build
-cd android
-./gradlew assembleDebug
-
-# Windows Development
+~~~
 cd windows
-npm install
+npm ci
 npm start
+~~~
 
-# Windows Build Installer
-cd windows
-npm run build:win
-```
+The Windows client must not report a protected connection unless the tunnel has actually been established and locally verified.
+
+### Server API
+
+~~~
+cd server/api
+npm ci
+npm test
+~~~
+
+The API requires deployment configuration such as ADMIN_TOKEN, WG_IFACE, SERVER_PUBLIC_KEY and SERVER_ENDPOINT.
+
+## Testing
+
+The repository contains multiple classes of tests. Structural/static tests are useful for regression prevention, but they are not equivalent to live VPN verification.
+
+Production validation should include:
+
+1. deterministic unit/API tests;
+2. Android compile and instrumentation validation;
+3. Windows tunnel establishment on a real Windows host;
+4. real DNS/IPv6/WebRTC leak checks;
+5. real WireGuard handshake and traffic tests;
+6. reconnect/failover testing;
+7. censorship/transport measurements on target networks;
+8. capacity and load testing;
+9. security scanning and dependency review.
+
+A green structural test suite must not be interpreted as proof that a VPN tunnel works on every network.
+
+## Production readiness
+
+Remaining deployment-dependent work includes:
+
+- production VPN gateway fleet and geographic/provider diversity;
+- server provisioning and orchestration;
+- production DNS, domains and certificates;
+- Android release signing;
+- Windows code signing and installer distribution;
+- resilient update and distribution channels;
+- centralized observability and alerting;
+- real-world ISP/DPI testing;
+- capacity/load testing;
+- backup, disaster recovery and incident response;
+- privacy/legal review and operational policies.
+
+These are infrastructure and operational requirements, not reasons to fabricate functionality in client code.
+
+## Security model
+
+FreedomVPN follows defense in depth:
+
+- fail-closed connection state;
+- least-privilege interfaces where practical;
+- private-key protection;
+- HTTPS and certificate pinning for production Android API communication;
+- server-side validation and rate limiting;
+- peer lifecycle management;
+- privacy-reduced audit logging;
+- explicit distinction between configured, attempted and verified connectivity.
+
+Security-sensitive changes should include regression tests and must not rely on UI state as evidence that network protection exists.
+
+## Contributing
+
+Contributions are welcome through the project's normal development process.
+
+Please:
+
+1. Fork or create an authorized development branch.
+2. Make a focused change.
+3. Add or update regression tests.
+4. Document security or deployment implications.
+5. Use clear, descriptive commit messages.
+6. Open a pull request for review.
+
+For security-sensitive issues, use the designated security-reporting process rather than publishing an exploitable vulnerability in a public issue.
+
+## Copyright and project rights
+
+**© 2026 Kweezi Perez Christopher. All rights reserved.**
+
+FreedomVPN, its original source code, documentation, branding, artwork and associated original materials are protected by applicable copyright law.
+
+Contributions are welcome through the project's contribution and review process. Unless a separate written agreement or project license states otherwise, submitting a contribution does not by itself grant permission to redistribute the project outside the terms established by the copyright holder.
+
+Licensing can vary by component and package metadata. The project name, branding, documentation and original materials remain protected by copyright; review any component-specific license before redistribution or commercial use. Do not assume unrestricted relicensing rights for the repository as a whole.
+
+Third-party components remain subject to their respective licenses and terms.
+
+## Responsible use
+
+FreedomVPN is intended for legitimate privacy, security, research, accessibility and censorship-resilience use cases. Users are responsible for complying with applicable laws and with the terms of networks and services they use.
+
+## Roadmap
+
+Engineering priorities include:
+
+- complete fail-closed behavior across all clients;
+- production-grade server configuration and lifecycle management;
+- verified multi-hop relays rather than simulated hop state;
+- stronger CI/CD and release validation;
+- real network/censorship measurements;
+- scalable gateway orchestration;
+- resilient distribution and update mechanisms;
+- observability without unnecessary browsing-history collection.
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! Here's how to help:
-
-1. **Code:** Pick a task from the roadmap above
-2. **Test:** Try the app and report bugs
-3. **Translate:** Help translate to local languages
-4. **Share:** Tell others who need internet freedom
-5. **Donate:** Help pay for server costs (coming soon)
-
-```bash
-# Fork & Clone
-git clone https://github.com/PerezChris99/FreedomVPN.git
-cd FreedomVPN
-git checkout perez
-
-# Make changes, then
-git add .
-git commit -m "Your changes"
-git push origin perez
-```
-
----
-
-## ⚠️ Important Disclaimers
-
-1. **Use Responsibly:** This tool is for accessing legitimate information
-2. **No Guarantees:** We cannot guarantee 100% undetectability
-3. **VPN Gate Servers:** Volunteer-run, variable quality
-4. **Your Safety First:** Always assess your personal risk
-
----
-
-## 📞 Support
-
-- **Issues:** [GitHub Issues](https://github.com/PerezChris99/FreedomVPN/issues)
-- **Email:** Coming soon
-- **Telegram:** Coming soon (for secure communication)
-
----
-
-## 📄 License
-
-MIT License - Free to use, modify, and distribute.
-
----
-
-<p align="center">
-  <strong>🕊️ Internet Freedom is a Human Right 🕊️</strong>
-</p>
-
-<p align="center">
-  Made with ❤️ for Uganda and the world
-</p>
-
-<p align="center">
-  ⚡ Developed by <a href="https://perezchris.netlify.app"><strong>Nemesis</strong></a>
-</p>
+FreedomVPN — engineering for resilient, private access to the open internet.

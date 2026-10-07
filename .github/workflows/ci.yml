@@ -1,0 +1,102 @@
+name: FreedomVPN CI
+
+on:
+  pull_request:
+    branches: [perez, main]
+  push:
+    branches: [perez, main]
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Server API tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server/api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm test
+
+  structural:
+    name: Structural security regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python tests/run_all_tests.py
+      - run: python tests/test_production_truth.py
+
+  android:
+    name: Android debug build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
+
+  windows:
+    name: Windows JavaScript validation
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - run: npm install
+      - name: Syntax check main
+        run: node --check main.js
+      - name: Syntax check tunnel manager
+        run: node --check system-tunnel.js
+      - name: Run package tests when defined
+        shell: pwsh
+        run: |
+          $scripts = (Get-Content package.json | ConvertFrom-Json).scripts
+          if ($scripts.test) { npm test } else { Write-Host "No npm test script defined; syntax checks completed." }
+
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - server/api
+          - windows
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - name: Refresh lockfile resolution
+        working-directory: ${{ matrix.project }}
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Install dependencies
+        working-directory: ${{ matrix.project }}
+        run: npm install
+      - name: npm audit
+        working-directory: ${{ matrix.project }}
+        run: npm audit --audit-level=high

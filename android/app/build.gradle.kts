@@ -18,6 +18,9 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
+        buildConfigField("String", "SERVER_BASE_URL", "\"${project.findProperty("serverBaseUrl") ?: "http://10.0.2.2:3000"}\"")
+        buildConfigField("String", "SERVER_CERT_PINS", "\"${project.findProperty("serverCertPins") ?: ""}\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         vectorDrawables {
@@ -45,6 +48,13 @@ android {
         }
     }
 
+    // Validate production-only settings when the release task is executed.
+    tasks.configureEach {
+        if (name == "preReleaseBuild") {
+            dependsOn("validateReleaseConfiguration")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -57,6 +67,7 @@ android {
     buildFeatures {
         compose = true
         viewBinding = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -66,6 +77,19 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+tasks.register("validateReleaseConfiguration") {
+    doLast {
+        val baseUrl = project.findProperty("serverBaseUrl")?.toString()
+        val certPins = project.findProperty("serverCertPins")?.toString()
+        require(!baseUrl.isNullOrBlank() && baseUrl.startsWith("https://")) {
+            "Release builds require -PserverBaseUrl=https://<production-host>"
+        }
+        require(!certPins.isNullOrBlank() && certPins.split(',').all { it.trim().startsWith("sha256/") }) {
+            "Release builds require -PserverCertPins=sha256/<pin>[,sha256/<backup-pin>]"
         }
     }
 }

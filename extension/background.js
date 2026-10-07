@@ -487,7 +487,15 @@ function setProxy(serverOrId) {
     return Promise.reject(new Error('Server not found'));
   }
 
-  console.log(`[FreedomVPN] Connecting to ${server.host}:${server.port} (${server.country || 'unknown'})...`);
+  const allowedSchemes = new Set(['http', 'https', 'socks4', 'socks5']);
+  if (!allowedSchemes.has(server.scheme || 'socks5')) {
+    return Promise.reject(new Error('Unsupported proxy scheme'));
+  }
+  if (!server.host || !Number.isInteger(Number(server.port)) || Number(server.port) < 1 || Number(server.port) > 65535) {
+    return Promise.reject(new Error('Invalid proxy endpoint'));
+  }
+
+  console.log(`[FreedomVPN] Configuring browser proxy ${server.host}:${server.port} (${server.country || 'unknown'})...`);
 
   const config = {
     mode: "fixed_servers",
@@ -519,7 +527,8 @@ function setProxy(serverOrId) {
         }
         
         state.isConnected = true;
-        state.currentServer = { id: serverId, ...server };
+        state.protectionType = 'browser-proxy';
+        state.currentServer = { id: server.id || null, ...server };
         state.startTime = Date.now();
         state.stats.sessionsCount++;
         
@@ -539,8 +548,8 @@ function setProxy(serverOrId) {
         // Update icon
         updateIcon(true);
         
-        console.log(`[FreedomVPN] Connected! IP: ${state.ip.masked}`);
-        resolve({ success: true, state, ip: state.ip.masked });
+        console.log(`[FreedomVPN] Browser proxy configured. This is not a system VPN tunnel.`);
+        resolve({ success: true, verified: false, protectionType: 'browser-proxy', state, ip: state.ip.masked });
       }
     );
   });
@@ -555,6 +564,7 @@ function clearProxy() {
     chrome.proxy.settings.clear({ scope: 'regular' }, () => {
       state.isConnected = false;
       state.currentServer = null;
+      state.protectionType = null;
       state.startTime = null;
       failureCount = 0;
       
