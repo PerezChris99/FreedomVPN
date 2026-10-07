@@ -100,3 +100,32 @@ jobs:
       - name: npm audit
         working-directory: ${{ matrix.project }}
         run: npm audit --audit-level=high
+
+  deployment-config:
+    name: Deployment config validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Validate load probe
+        run: python tests/test_load_script.py
+      - name: Validate Docker Compose
+        working-directory: server
+        env:
+          SERVER_DOMAIN: vpn.example.test
+          VPN_PORT: "51820"
+          VPN_SUBNET: 10.8.0.0/24
+          DNS1: 1.1.1.1
+          DNS2: 1.0.0.1
+        run: |
+          cp api/.env.example api/.env
+          sed -i 's/^ADMIN_TOKEN=.*/ADMIN_TOKEN=ci-test-admin-token-xxxxxxxxxxxxxxxxxxxxxxxx/' api/.env
+          sed -i 's/^SERVER_PUBLIC_KEY=.*/SERVER_PUBLIC_KEY=hTivWiGjkHVHTLfdyxH2ZQDb86DSZjOsJvS6+rS07hs=/' api/.env
+          sed -i 's/^SERVER_ENDPOINT=.*/SERVER_ENDPOINT=vpn.example.test:51820/' api/.env
+          mkdir -p secrets
+          printf '%s' 'ci-test-metrics-token-xxxxxxxxxxxxxxxxxxxxxxxx' > secrets/metrics_token
+          docker compose config --quiet
