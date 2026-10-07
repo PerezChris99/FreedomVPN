@@ -52,7 +52,9 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
       - name: Build debug APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
 
   windows:
     name: Windows JavaScript validation
