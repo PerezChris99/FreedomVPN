@@ -222,7 +222,7 @@ FreedomVPN, its original source code, documentation, branding, artwork and assoc
 
 Contributions are welcome through the project's contribution and review process. Unless a separate written agreement or project license states otherwise, submitting a contribution does not by itself grant permission to redistribute the project outside the terms established by the copyright holder.
 
-This repository currently does not include a separate open-source license file. Do not assume that the source is licensed for unrestricted commercial use, redistribution or relicensing.
+Licensing can vary by component and package metadata. The project name, branding, documentation and original materials remain protected by copyright; review any component-specific license before redistribution or commercial use. Do not assume unrestricted relicensing rights for the repository as a whole.
 
 Third-party components remain subject to their respective licenses and terms.
 
