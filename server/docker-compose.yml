@@ -1,7 +1,7 @@
 services:
   # ── WireGuard VPN ───────────────────────────────────────────────────────────
   wireguard:
-    image: lscr.io/linuxserver/wireguard:latest
+    image: lscr.io/linuxserver/wireguard:1.0.20260223-r0-ls123
     container_name: freedomvpn-wireguard
     cap_add:
       - NET_ADMIN
@@ -57,9 +57,9 @@ services:
       - "80:80"
       - "443:443"
     restart: unless-stopped
+    network_mode: service:wireguard
     depends_on:
-      - api
-      - prometheus
+      - wireguard
 
   # ── Prometheus observability ─────────────────────────────────────────────────
   prometheus:
@@ -75,9 +75,10 @@ services:
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=15d
     restart: unless-stopped
+    network_mode: service:wireguard
     depends_on:
-      api:
-        condition: service_healthy
+      wireguard:
+        condition: service_started
 
   # ── Certbot TLS ──────────────────────────────────────────────────────────────
   certbot:
