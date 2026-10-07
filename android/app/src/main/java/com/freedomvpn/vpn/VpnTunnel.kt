@@ -1,5 +1,7 @@
 package com.freedomvpn.vpn
 
+import com.freedomvpn.BuildConfig
+
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import kotlinx.coroutines.*
