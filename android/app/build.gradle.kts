@@ -30,12 +30,6 @@ android {
 
     buildTypes {
         release {
-            if (project.findProperty("serverBaseUrl") == null) {
-                throw GradleException("Release builds require -PserverBaseUrl=https://<production-host>")
-            }
-            if (project.findProperty("serverCertPins") == null) {
-                throw GradleException("Release builds require -PserverCertPins=sha256/<pin>[,sha256/<backup-pin>]")
-            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -51,6 +45,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+    }
+
+    // Validate production-only settings when the release task is executed.
+    tasks.configureEach {
+        if (name == "preReleaseBuild") {
+            dependsOn("validateReleaseConfiguration")
         }
     }
 
@@ -76,6 +77,19 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+tasks.register("validateReleaseConfiguration") {
+    doLast {
+        val baseUrl = project.findProperty("serverBaseUrl")?.toString()
+        val certPins = project.findProperty("serverCertPins")?.toString()
+        require(!baseUrl.isNullOrBlank() && baseUrl.startsWith("https://")) {
+            "Release builds require -PserverBaseUrl=https://<production-host>"
+        }
+        require(!certPins.isNullOrBlank() && certPins.split(',').all { it.trim().startsWith("sha256/") }) {
+            "Release builds require -PserverCertPins=sha256/<pin>[,sha256/<backup-pin>]"
         }
     }
 }
