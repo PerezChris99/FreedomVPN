@@ -1,5 +1,7 @@
 package com.freedomvpn.vpn.server
 
+import com.freedomvpn.BuildConfig
+
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -254,8 +256,8 @@ class ServerApiClient @Inject constructor() {
  */
 private object BuildConfigHelper {
     val SERVER_BASE_URL: String
-        get() = BuildConfig.SERVER_BASE_URL
+        get() = com.freedomvpn.BuildConfig.SERVER_BASE_URL
 
-    val SERVER_CERT_PINS: Array<String>
-        get() = BuildConfig.SERVER_CERT_PINS
+    val SERVER_CERT_PINS: String
+        get() = com.freedomvpn.BuildConfig.SERVER_CERT_PINS
 }
