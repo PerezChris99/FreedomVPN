@@ -164,10 +164,6 @@ describe('WireGuard util — input validation', () => {
   beforeEach(() => addPeer.mockClear());
 
   test('rejects key injection attempt (semicolons)', async () => {
-    const wg = require('../src/utils/wireguard');
-    wg.addPeer.mockImplementation(async (key, cidr) => {
-      // Real validator runs in actual module — test that route rejects it
-    });
     const res = await request(app).post('/api/peers/register').send({
       publicKey: 'aGVsbG8;rm+-rf+/;echo+pwned+>+/tmp/x+===========',
     });
