@@ -320,7 +320,7 @@ PersistentKeepalive = ${persistentKeepalive}`;
                 // Verify the WireGuard interface exists before reporting connected.
                 const interfaceName = path.basename(configPath, '.conf');
                 try {
-                    this.verifyWireGuardTunnel(interfaceName);
+                    this.verifyWireGuardTunnel(interfaceName, wireGuardPath);
                 } catch (err) {
                     try {
                         execFileSync(wireGuardPath, ['/uninstalltunnelservice', interfaceName], {
@@ -340,6 +340,10 @@ PersistentKeepalive = ${persistentKeepalive}`;
                     this.enableFirewallKillSwitch();
                 }
 
+                // The installed service owns the tunnel configuration now; remove
+                // the temporary copy so the private key is not left in %TEMP%.
+                try { fs.unlinkSync(configPath); } catch {}
+
                 resolve({ success: true, tunnelType: 'WireGuard', verified: true });
             });
 
@@ -352,13 +356,16 @@ PersistentKeepalive = ${persistentKeepalive}`;
     }
 
     /** Verify that the named WireGuard interface is actually present. */
-    verifyWireGuardTunnel(interfaceName) {
+    verifyWireGuardTunnel(interfaceName, wireGuardPath = null) {
         if (!interfaceName || !/^[A-Za-z0-9._-]+$/.test(interfaceName)) {
             throw new Error('Invalid WireGuard interface name');
         }
 
         try {
-            const output = execFileSync('wg', ['show', interfaceName], {
+            const wgTool = wireGuardPath && wireGuardPath !== 'wireguard'
+                ? path.join(path.dirname(wireGuardPath), 'wg.exe')
+                : 'wg';
+            const output = execFileSync(wgTool, ['show', interfaceName], {
                 encoding: 'utf8',
                 timeout: 5000,
                 windowsHide: true,
