@@ -26,8 +26,9 @@ router.get('/', (req, res) => {
 
   const uptime = Math.floor((Date.now() - START) / 1000);
 
-  res.json({
-    status:       'ok',
+  const healthy = wgStatus === 'up';
+  res.status(healthy ? 200 : 503).json({
+    status:       healthy ? 'ok' : 'degraded',
     wireguard:    wgStatus,
     peers:        peerCount,
     uptime,
