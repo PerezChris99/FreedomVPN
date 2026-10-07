@@ -19,6 +19,8 @@ services:
       - /lib/modules:/lib/modules:ro
     ports:
       - "${VPN_PORT:-51820}:${VPN_PORT:-51820}/udp"
+      - "80:80"
+      - "443:443"
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
@@ -53,9 +55,6 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/freedomvpn.conf:ro
       - certbot-www:/var/www/certbot:ro
       - certbot-certs:/etc/letsencrypt:ro
-    ports:
-      - "80:80"
-      - "443:443"
     restart: unless-stopped
     network_mode: service:wireguard
     depends_on:
