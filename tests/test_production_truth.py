@@ -52,6 +52,14 @@ def test_android_release_requires_deployment_config():
     assert "serverCertPins" in text
 
 
+def test_extension_labels_proxy_as_browser_only():
+    text = read("extension/background.js")
+    assert "protectionType = 'browser-proxy'" in text
+    assert "verified: false" in text
+    assert "id: server.id || null" in text
+    assert "id: serverId" not in text
+
+
 def test_readme_does_not_make_absolute_anonymity_claims():
     text = read("README.md").lower()
     assert "untraceable" not in text
@@ -68,6 +76,7 @@ def main():
         test_windows_does_not_generate_fake_vpn_ip,
         test_android_has_no_placeholder_production_endpoint,
         test_android_release_requires_deployment_config,
+        test_extension_labels_proxy_as_browser_only,
         test_readme_does_not_make_absolute_anonymity_claims,
     ]
     failures = 0
