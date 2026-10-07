@@ -856,9 +856,9 @@ ipcMain.handle('run-privacy-check', async () => {
 });
 
 // Generate VPN IP for server
-ipcMain.handle('generate-vpn-ip', (event, serverId) => {
-  const server = Object.values(SERVERS).find(s => s.id === serverId) || state.currentServer;
-  return ipDetection.generateVpnIP(server);
+ipcMain.handle('generate-vpn-ip', () => {
+  // Never manufacture an IP address to represent VPN protection.
+  return state.isConnected ? (state.ip.masked || null) : null;
 });
 
 ipcMain.handle('force-failover', async () => {
@@ -938,110 +938,47 @@ ipcMain.handle('get-nearest-servers', async (event, count = 5) => {
 
 // Multi-Hop IPC Handlers
 ipcMain.handle('toggle-multihop', async (event, enabled) => {
-  return toggleMultiHop(enabled);
-});
+  if (!enabled) {
+    try {
+      await multiHopEngine.deactivate();
+    } catch (error) {
+      console.error('[MultiHop] Deactivation error:', error);
+      return { success: false, error: error.message };
+    }
+    state.multiHop.enabled = false;
+    state.multiHop.chain = [];
+    if (mainWindow) mainWindow.webContents.send('multihop-deactivated', {});
+    return { success: true };
+  }
 
-ipcMain.handle('get-multihop-state', () => {
+  // A real multi-hop implementation requires independent, verified
+  // WireGuard tunnels/relays for every hop. The previous handler created
+  // in-memory hop objects and reported them as connected, which was unsafe.
+  state.multiHop.enabled = false;
+  state.multiHop.chain = [];
   return {
-    enabled: state.multiHop.enabled,
-    chain: multiHopEngine.getChainInfo()
+    success: false,
+    verified: false,
+    error: 'Multi-hop is unavailable until every relay can establish and verify a real tunnel'
   };
 });
 
-ipcMain.handle('set-multihop-preset', async (event, preset) => {
-  const presets = { FAST: MultiHopPresets.FAST, BALANCED: MultiHopPresets.BALANCED, MAXIMUM: MultiHopPresets.MAXIMUM, PARANOID: MultiHopPresets.PARANOID };
-  if (presets[preset]) {
-    Object.assign(multiHopEngine.config, presets[preset]);
-    return { success: true, preset };
-  }
-  return { success: false, error: 'Invalid preset' };
-});
+ipcMain.handle('get-multihop-state', () => ({
+  enabled: state.multiHop.enabled,
+  chain: multiHopEngine.getChainInfo()
+}));
 
-// Toggle Multi-Hop Mode
-async function toggleMultiHop(enabled) {
-  console.log(`[FreedomVPN] ${enabled ? 'Enabling' : 'Disabling'} Multi-Hop mode...`);
-  
-  try {
-    if (enabled) {
-      // Get available servers
-      const servers = Object.entries(SERVERS)
-        .filter(([id]) => !state.blockedServers.includes(id))
-        .map(([id, s]) => ({ id, ...s }));
-      
-      // Custom connection handler for WireGuard chain
-      const connectionHandler = async (server, hopInfo) => {
-        return new Promise(async (resolve, reject) => {
-          try {
-            // For multi-hop, we chain WireGuard connections
-            // Each hop establishes encrypted tunnel through previous hop
-            const connection = {
-              server,
-              hopIndex: hopInfo.hopIndex,
-              isEntry: hopInfo.isEntry,
-              isExit: hopInfo.isExit,
-              connected: true,
-              close: async () => {
-                // Cleanup this hop
-                console.log(`[MultiHop] Closing hop ${hopInfo.hopIndex + 1}`);
-              }
-            };
-            
-            // Simulate instant connection (actual WireGuard negotiation is ~50ms)
-            resolve(connection);
-          } catch (error) {
-            reject(error);
-          }
-        });
-      };
-      
-      // Activate multi-hop
-      const chain = await multiHopEngine.activate(servers, connectionHandler);
-      
-      if (chain) {
-        state.multiHop.enabled = true;
-        state.multiHop.chain = chain.map(h => ({
-          id: h.server.id,
-          country: h.server.country,
-          city: h.server.city,
-          flag: h.server.flag,
-          isEntry: h.isEntry,
-          isExit: h.isExit
-        }));
-        
-        // Connect through multi-hop chain
-        if (!state.isConnected) {
-          const exitServer = chain[chain.length - 1].server;
-          await connect(exitServer.id);
-        }
-        
-        console.log(`[FreedomVPN] Multi-Hop active: ${chain.map(h => h.server.city).join(' → ')}`);
-        
-        if (mainWindow) {
-          mainWindow.webContents.send('multihop-activated', {
-            chain: state.multiHop.chain,
-            estimatedSpeed: multiHopEngine.estimateSpeedRetention() * 100
-          });
-        }
-        
-        return { success: true, chain: state.multiHop.chain };
-      }
-    } else {
-      // Deactivate multi-hop
-      await multiHopEngine.deactivate();
-      state.multiHop.enabled = false;
-      state.multiHop.chain = [];
-      
-      if (mainWindow) {
-        mainWindow.webContents.send('multihop-deactivated', {});
-      }
-      
-      return { success: true };
-    }
-  } catch (error) {
-    console.error('[MultiHop] Toggle error:', error);
-    return { success: false, error: error.message };
-  }
-}
+ipcMain.handle('set-multihop-preset', async (event, preset) => {
+  const presets = {
+    FAST: MultiHopPresets.FAST,
+    BALANCED: MultiHopPresets.BALANCED,
+    MAXIMUM: MultiHopPresets.MAXIMUM,
+    PARANOID: MultiHopPresets.PARANOID
+  };
+  if (!presets[preset]) return { success: false, error: 'Invalid preset' };
+  Object.assign(multiHopEngine.config, presets[preset]);
+  return { success: true, preset };
+});
 
 ipcMain.handle('minimize', () => {
   mainWindow?.minimize();
