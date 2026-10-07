@@ -1,0 +1,43 @@
+name: Refresh dependency lockfiles
+
+on:
+  push:
+    branches: [perez]
+
+permissions:
+  contents: read
+
+jobs:
+  windows-lock:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --package-lock-only --ignore-scripts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-package-lock
+          path: windows/package-lock.json
+          if-no-files-found: error
+
+  server-lock:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --package-lock-only --ignore-scripts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-package-lock
+          path: server/api/package-lock.json
+          if-no-files-found: error
