@@ -7,7 +7,7 @@
  */
 
 const express = require('express');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const db      = require('../db');
 
 const router  = express.Router();
@@ -18,7 +18,9 @@ router.get('/', (req, res) => {
 
   let wgStatus = 'unknown';
   try {
-    execSync(`wg show ${process.env.WG_IFACE || 'wg0'} 2>/dev/null`, { timeout: 3000 });
+    const iface = process.env.WG_IFACE || 'wg0';
+    if (!/^[A-Za-z0-9._-]+$/.test(iface)) throw new Error('Invalid WireGuard interface');
+    execFileSync('wg', ['show', iface], { timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] });
     wgStatus = 'up';
   } catch {
     wgStatus = 'down';
