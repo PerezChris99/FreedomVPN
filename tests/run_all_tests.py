@@ -6,6 +6,8 @@ Runs all test suites and provides a complete verification report:
 1. VPN Gate Integration Tests
 2. Platform Compatibility Tests  
 3. Anonymity Verification Tests
+4. Multi-Hop regression tests
+5. Production-truth regression tests
 
 Run with: python tests/run_all_tests.py
 """
@@ -209,6 +211,23 @@ def run_all_tests():
         traceback.print_exc()
         all_passed = False
     
+    # ===== PRODUCTION-TRUTH REGRESSIONS =====
+    print("\n" + "=" * 70)
+    print("SUITE 5: PRODUCTION-TRUTH REGRESSIONS")
+    print("=" * 70)
+    try:
+        from test_production_truth import main as run_production_truth
+        truth_passed = run_production_truth()
+        truth_total = 7
+        total_tests += truth_total
+        if truth_passed:
+            total_passed += truth_total
+        else:
+            all_passed = False
+    except Exception as e:
+        print(f"[ERROR] Production-truth tests failed: {e}")
+        all_passed = False
+
     # ===== FINAL SUMMARY =====
     print("\n" + "=" * 70)
     print("MASTER TEST SUMMARY")
@@ -223,17 +242,11 @@ def run_all_tests():
     
     if final_success:
         print("\n" + "=" * 70)
-        print("[SUCCESS] ALL TESTS PASSED!")
+        print("[SUCCESS] ALL AUTOMATED REGRESSION TESTS PASSED")
         print("=" * 70)
-        print("\nFreedomVPN is fully functional with:")
-        print("  - VPN Gate Integration: Working")
-        print("  - All Platforms: Web, Windows, Android, Extension")
-        print("  - Anonymity Rating: MAXIMUM (100%)")
-        print("  - Encryption: Military-grade (ChaCha20-Poly1305)")
-        print("  - Leak Protection: WebRTC, DNS, IPv6 all blocked")
-        print("  - Kill Switch: Active")
-        print("  - Multi-Hop: Server bouncing for enhanced anonymity")
-        print("  - No-Log Policy: Verified")
+        print("\nThis result confirms only the checks executed by this test runner.")
+        print("It does not prove live VPN connectivity, anonymity, censorship bypass,")
+        print("national-scale capacity, or production infrastructure readiness.")
     else:
         print("\n[WARNING] Some tests failed - review output above")
     
