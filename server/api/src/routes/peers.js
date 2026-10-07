@@ -85,6 +85,8 @@ router.post('/register',
     // Check if this key is already registered
     const existing = db.prepare('SELECT * FROM peers WHERE public_key = ?').get(publicKey);
     if (existing) {
+      db.prepare('UPDATE peers SET last_seen = ?, platform = ?, device_id = ? WHERE id = ?')
+        .run(Math.floor(Date.now() / 1000), safePlatform, safeDeviceId, existing.id);
       db.auditLog('reregister', existing.id, req.ip, safePlatform, { deviceId: safeDeviceId });
       return res.status(200).json({
         id:             existing.id,
@@ -105,19 +107,27 @@ router.post('/register',
 
     const id = uuidv4();
 
-    // Add to WireGuard interface
+    // Reserve the IP before the asynchronous WireGuard operation. The UNIQUE
+    // constraints prevent concurrent registrations from taking the same slot.
+    try {
+      db.prepare(`
+        INSERT INTO peers (id, public_key, assigned_ip, platform, device_id)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(id, publicKey, assignedIP, safePlatform, safeDeviceId);
+    } catch (err) {
+      console.error('Peer reservation failed:', err.message);
+      return res.status(503).json({ error: 'Unable to reserve VPN address; retry' });
+    }
+
+    // Configure WireGuard after the address is reserved. If configuration fails,
+    // release the reservation so the pool does not leak capacity.
     try {
       await wg.addPeer(publicKey, `${assignedIP}/32`);
     } catch (err) {
+      db.prepare('DELETE FROM peers WHERE id = ?').run(id);
       console.error('wg addPeer failed:', err.message);
       return res.status(500).json({ error: 'Failed to configure VPN peer on server' });
     }
-
-    // Persist
-    db.prepare(`
-      INSERT INTO peers (id, public_key, assigned_ip, platform, device_id)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(id, publicKey, assignedIP, safePlatform, safeDeviceId);
 
     db.auditLog('register', id, req.ip, safePlatform, { assignedIP, deviceId: safeDeviceId });
     console.log(`New peer registered: id=${id} ip=${assignedIP} platform=${safePlatform}`);
