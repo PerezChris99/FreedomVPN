@@ -937,7 +937,7 @@ ipcMain.handle('get-nearest-servers', async (event, count = 5) => {
 });
 
 // Multi-Hop IPC Handlers
-ipcMain.handle('toggle-multihop', async (event, enabled) => {
+async function toggleMultiHop(enabled) {
   if (!enabled) {
     try {
       await multiHopEngine.deactivate();
@@ -951,9 +951,8 @@ ipcMain.handle('toggle-multihop', async (event, enabled) => {
     return { success: true };
   }
 
-  // A real multi-hop implementation requires independent, verified
-  // WireGuard tunnels/relays for every hop. The previous handler created
-  // in-memory hop objects and reported them as connected, which was unsafe.
+  // Do not create in-memory hops or claim protection without independently
+  // established and verified relay tunnels.
   state.multiHop.enabled = false;
   state.multiHop.chain = [];
   return {
@@ -961,7 +960,10 @@ ipcMain.handle('toggle-multihop', async (event, enabled) => {
     verified: false,
     error: 'Multi-hop is unavailable until every relay can establish and verify a real tunnel'
   };
-});
+}
+
+ipcMain.handle('toggle-multihop', async (event, enabled) => toggleMultiHop(enabled));
+
 
 ipcMain.handle('get-multihop-state', () => ({
   enabled: state.multiHop.enabled,
