@@ -52,6 +52,8 @@ services:
   nginx:
     image: nginx:1.25-alpine
     container_name: freedomvpn-nginx
+    environment:
+      NGINX_ENVSUBST_TEMPLATE_VARS: "${SERVER_DOMAIN}"
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/templates/freedomvpn.conf.template:ro
       - certbot-www:/var/www/certbot:ro
