@@ -19,6 +19,7 @@ android {
         versionName = "1.0.0"
 
         buildConfigField("String", "SERVER_BASE_URL", "\"${project.findProperty("serverBaseUrl") ?: "http://10.0.2.2:3000"}\"")
+        buildConfigField("String", "SERVER_CERT_PINS", "\"${project.findProperty("serverCertPins") ?: ""}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -31,6 +32,9 @@ android {
         release {
             if (project.findProperty("serverBaseUrl") == null) {
                 throw GradleException("Release builds require -PserverBaseUrl=https://<production-host>")
+            }
+            if (project.findProperty("serverCertPins") == null) {
+                throw GradleException("Release builds require -PserverCertPins=sha256/<pin>[,sha256/<backup-pin>]")
             }
             isMinifyEnabled = true
             isShrinkResources = true
