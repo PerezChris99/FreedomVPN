@@ -29,6 +29,9 @@ android {
 
     buildTypes {
         release {
+            if (project.findProperty("serverBaseUrl") == null) {
+                throw GradleException("Release builds require -PserverBaseUrl=https://<production-host>")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
