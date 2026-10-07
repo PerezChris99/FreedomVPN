@@ -552,7 +552,6 @@ async function findBestServer() {
 
 // Connect to VPN server
 async function connect(serverId) {
-  // Auto-select a server if none provided
   if (!serverId) {
     const serverKeys = Object.keys(SERVERS);
     if (serverKeys.length === 0) {
@@ -560,7 +559,7 @@ async function connect(serverId) {
     }
     serverId = serverKeys[0];
   }
-  
+
   const server = SERVERS[serverId];
   if (!server) {
     return { success: false, error: 'Server not found' };
@@ -569,88 +568,76 @@ async function connect(serverId) {
   console.log(`[FreedomVPN] Connecting to ${server.city}, ${server.country}...`);
 
   try {
-    const settings = store.get('settings');
-    
-    // Get real IP first
     if (!state.ip.real) {
       state.ip.real = await fetchExternalIP();
     }
-    
-    // Try WireGuard if available and server has WireGuard config
+
     const wireGuardPath = SystemWideTunnel.isWireGuardInstalled();
-    
-    if (wireGuardPath && server.wireGuardKey) {
-      console.log('[FreedomVPN] Using WireGuard for system-wide tunnel...');
-      
-      try {
-        await systemTunnel.connectWireGuard({
-          serverPublicKey: server.wireGuardKey,
-          serverEndpoint: server.host,
-          serverPort: server.wireGuardPort || 51820,
-          dns: ['8.8.8.8', '8.8.4.4', '1.1.1.1'],
-          allowedIPs: ['0.0.0.0/0', '::/0']
-        });
-      } catch (wgError) {
-        console.log('[FreedomVPN] WireGuard failed, trying fallback:', wgError.message);
-      }
+    if (!wireGuardPath) {
+      throw new Error('WireGuard is not installed; a verified system-wide VPN tunnel cannot be established');
     }
-    
-    // For demo: Simulate successful connection
-    // In production, this would use actual VPN Gate OpenVPN configs
-    console.log('[FreedomVPN] Demo mode: Simulating VPN connection...');
-    
-    // Update state as connected
+    if (!server.wireGuardKey || !server.host) {
+      throw new Error('Selected server does not provide a complete WireGuard configuration');
+    }
+
+    const result = await systemTunnel.connectWireGuard({
+      serverPublicKey: server.wireGuardKey,
+      serverEndpoint: server.host,
+      serverPort: server.wireGuardPort || 51820,
+      dns: ['8.8.8.8', '8.8.4.4', '1.1.1.1'],
+      allowedIPs: ['0.0.0.0/0', '::/0']
+    });
+
+    if (!result || result.success !== true || result.verified !== true) {
+      throw new Error('WireGuard tunnel was not verified; refusing to report a VPN connection');
+    }
+
     state.isConnected = true;
     state.currentServer = { id: serverId, ...server };
     state.startTime = Date.now();
     state.stats = { bytesIn: 0, bytesOut: 0, dataSaved: 0, moneySaved: 0 };
-    
-    // Simulate a VPN IP (in production, this would be the real exit IP)
-    const simulatedIP = `${Math.floor(Math.random() * 200) + 10}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
-    state.ip.masked = simulatedIP;
-    
-    console.log(`[FreedomVPN] Connected (Demo Mode)`);
-    console.log(`[FreedomVPN] Real IP: ${state.ip.real}`);
-    console.log(`[FreedomVPN] Simulated VPN IP: ${state.ip.masked}`);
-    console.log(`[FreedomVPN] Server: ${server.city}, ${server.country}`);
-    
-    // Start health monitoring
+    // Do not fabricate an exit IP. It is populated only by a verified external-IP check.
+    state.ip.masked = null;
+
+    console.log(`[FreedomVPN] Verified WireGuard connection to ${server.city}, ${server.country}`);
+
     startHealthMonitoring();
-    
-    // Update stats
+
     const stats = store.get('stats');
     store.set('stats', { ...stats, totalSessions: stats.totalSessions + 1 });
-    
-    // Update tray
+
     if (typeof updateTrayMenu === 'function') {
       updateTrayMenu();
     }
-    
-    // Notify renderer
+
     if (mainWindow) {
-      mainWindow.webContents.send('connection-state', { 
-        connected: true, 
+      mainWindow.webContents.send('connection-state', {
+        connected: true,
+        verified: true,
         server: state.currentServer,
-        ip: state.ip.masked,
-        systemWide: false,
-        demoMode: true
+        ip: null,
+        systemWide: true,
+        demoMode: false
       });
     }
 
-    return { 
-      success: true, 
-      state, 
-      ip: state.ip.masked, 
-      demoMode: true,
-      message: 'Connected in demo mode. For real VPN, install WireGuard and configure server keys.'
+    return {
+      success: true,
+      verified: true,
+      state,
+      ip: null,
+      demoMode: false,
+      message: 'WireGuard tunnel established and locally verified'
     };
-
   } catch (error) {
+    state.isConnected = false;
+    state.currentServer = null;
+    state.startTime = null;
+    state.ip.masked = null;
     console.error('[FreedomVPN] Connection error:', error);
-    return { success: false, error: error.message };
+    return { success: false, verified: false, error: error.message };
   }
 }
-
 // Connect to best server
 async function connectToBestServer() {
   const best = await findBestServer();
