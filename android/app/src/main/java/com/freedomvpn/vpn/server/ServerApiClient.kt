@@ -82,18 +82,20 @@ class ServerApiClient @Inject constructor() {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)
 
-        // Enforce HTTPS — log a warning if not
-        if (!BASE_URL.startsWith("https://")) {
-            Log.w(TAG, "WARNING: BASE_URL is not HTTPS — connection is insecure")
+        require(BASE_URL.startsWith("https://")) {
+            "FreedomVPN server API requires HTTPS"
+        }
+        require(hostname.isNotEmpty()) {
+            "FreedomVPN server API URL must contain a valid hostname"
+        }
+        require(CERT_PINS.isNotEmpty() && CERT_PINS.all { it.startsWith("sha256/") }) {
+            "FreedomVPN release requires valid SHA-256 SPKI certificate pins"
         }
 
-        // Certificate pinning — prevents MITM even with a rogue CA
-        if (hostname.isNotEmpty() && BASE_URL.startsWith("https://")) {
-            val pinner = CertificatePinner.Builder().apply {
-                CERT_PINS.forEach { pin -> add(hostname, pin) }
-            }.build()
-            builder.certificatePinner(pinner)
-        }
+        val pinner = CertificatePinner.Builder().apply {
+            CERT_PINS.forEach { pin -> add(hostname, pin) }
+        }.build()
+        builder.certificatePinner(pinner)
 
         builder.build()
     }
