@@ -44,7 +44,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug
@@ -60,9 +64,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: windows/package-lock.json
-      - run: npm ci
+      - run: npm install
       - name: Syntax check main
         run: node --check main.js
       - name: Syntax check tunnel manager
@@ -86,6 +88,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install dependencies
+        working-directory: ${{ matrix.project }}
+        run: npm install
       - name: npm audit
         working-directory: ${{ matrix.project }}
         run: npm audit --audit-level=high
