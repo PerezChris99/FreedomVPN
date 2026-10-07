@@ -6,10 +6,15 @@
  */
 
 // Mock the 'wg' CLI calls so tests run on any machine
-jest.mock('../src/utils/wireguard', () => ({
+jest.mock('./src/utils/wireguard', () => ({
   addPeer:     jest.fn().mockResolvedValue(undefined),
   removePeer:  jest.fn().mockResolvedValue(undefined),
   getPeerStats: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock('child_process', () => ({
+  ...jest.requireActual('child_process'),
+  execFileSync: jest.fn().mockReturnValue(Buffer.from('interface: wg0\\n')),
 }));
 
 // Use in-memory SQLite for tests
@@ -24,7 +29,7 @@ process.env.VPN_SUBNET   = '10.8.0.0/24';
 process.env.VPN_SERVER_IP = '10.8.0.1';
 
 const request = require('supertest');
-const app     = require('../src/index');
+const app     = require('./src/index');
 
 // A valid WireGuard public key (base64, 44 chars, 32 bytes)
 const VALID_KEY   = 'hTivWiGjkHVHTLfdyxH2ZQDb86DSZjOsJvS6+rS07hs=';
@@ -153,7 +158,7 @@ describe('Security — unknown routes', () => {
 });
 
 describe('WireGuard util — input validation', () => {
-  const { addPeer } = require('../src/utils/wireguard');
+  const { addPeer } = require('./src/utils/wireguard');
 
   // Un-mock for validation-only tests
   beforeEach(() => addPeer.mockClear());
