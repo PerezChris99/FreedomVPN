@@ -47,12 +47,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools'
-      - name: Install Android build packages
-        shell: bash
-        run: |
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug
