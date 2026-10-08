@@ -27,6 +27,7 @@ process.env.DNS1         = '1.1.1.1';
 process.env.DNS2         = '1.0.0.1';
 process.env.VPN_SUBNET   = '10.8.0.0/24';
 process.env.VPN_SERVER_IP = '10.8.0.1';
+process.env.METRICS_TOKEN = 'test-metrics-token-' + 'x'.repeat(20);
 
 const request = require('supertest');
 const app     = require('./src/index');
@@ -44,6 +45,23 @@ describe('GET /api/health', () => {
     expect(res.body.status).toBe('ok');
     expect(typeof res.body.uptime).toBe('number');
     expect(typeof res.body.peers).toBe('number');
+  });
+});
+
+describe('GET /api/metrics', () => {
+  test('requires bearer authentication', async () => {
+    const res = await request(app).get('/api/metrics');
+    expect(res.status).toBe(401);
+  });
+  test('exports bounded operational metrics without peer/device identifiers', async () => {
+    const res = await request(app)
+      .get('/api/metrics')
+      .set('Authorization', 'Bearer ' + process.env.METRICS_TOKEN);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('freedomvpn_process_uptime_seconds');
+    expect(res.text).toContain('freedomvpn_peers_total');
+    expect(res.text).not.toContain(VALID_KEY);
+    expect(res.text).not.toContain('test-device');
   });
 });
 

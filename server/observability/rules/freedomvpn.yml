@@ -1,0 +1,18 @@
+groups:
+  - name: freedomvpn-api
+    rules:
+      - alert: FreedomVPNApiDown
+        expr: up{job="freedomvpn-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "FreedomVPN API scrape is down" }
+      - alert: FreedomVPNPeerPoolPressure
+        expr: freedomvpn_peers_total > 230
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Gateway peer pool is approaching /24 capacity" }
+      - alert: FreedomVPNHighHttpErrorRate
+        expr: sum(rate(freedomvpn_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(freedomvpn_http_requests_total[5m])), 1) > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "FreedomVPN API 5xx rate exceeds 5 percent" }

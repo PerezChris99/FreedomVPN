@@ -17,6 +17,7 @@ const peers      = require('./routes/peers');
 const health     = require('./routes/health');
 const servers    = require('./routes/servers');
 const rateLimit  = require('./middleware/rateLimit');
+const metrics    = require('./metrics');
 
 // ─── Validate required env ───────────────────────────────────────────────────
 const REQUIRED_ENV = ['ADMIN_TOKEN', 'WG_IFACE', 'SERVER_PUBLIC_KEY', 'SERVER_ENDPOINT'];
@@ -45,6 +46,12 @@ app.use(express.json({ limit: '64kb' }));
 
 // Remove express fingerprint
 app.disable('x-powered-by');
+
+// Private metrics endpoint is authenticated independently and is not part of the public API rate limit.
+app.get('/api/metrics', metrics.router(db));
+
+// Request metrics intentionally use route templates, never user/device identifiers.
+app.use(metrics.middleware);
 
 // Global rate limit — 100 req/15min per IP
 app.use(rateLimit.global);
