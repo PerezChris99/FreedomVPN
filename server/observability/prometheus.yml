@@ -10,4 +10,6 @@ scrape_configs:
       type: Bearer
       credentials_file: /run/secrets/metrics_token
     static_configs:
-      - targets: ["api:3000"]
+      # Prometheus shares the WireGuard network namespace with the API.
+      # The API binds to loopback, so localhost is the correct target.
+      - targets: ["127.0.0.1:3000"]
